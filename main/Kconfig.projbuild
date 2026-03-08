@@ -25,35 +25,35 @@ menu "Robot Controller Configuration"
         config ROBOT_MOTOR_LEFT_IN1
             int "Left Motor IN1 GPIO"
             default 12
-            range 0 48
+            range 0 39
             help
                 GPIO pin connected to left motor DRV8833 IN1.
 
         config ROBOT_MOTOR_LEFT_IN2
             int "Left Motor IN2 GPIO"
             default 13
-            range 0 48
+            range 0 39
             help
                 GPIO pin connected to left motor DRV8833 IN2.
 
         config ROBOT_MOTOR_RIGHT_IN1
             int "Right Motor IN1 GPIO"
             default 14
-            range 0 48
+            range 0 39
             help
                 GPIO pin connected to right motor DRV8833 IN1.
 
         config ROBOT_MOTOR_RIGHT_IN2
             int "Right Motor IN2 GPIO"
             default 15
-            range 0 48
+            range 0 39
             help
                 GPIO pin connected to right motor DRV8833 IN2.
 
         config ROBOT_MOTORS_ENABLE
             int "Motors Enable (PWM) GPIO"
             default 2
-            range 0 48
+            range 0 39
             help
                 GPIO pin connected to both DRV8833 EEP pins (shared enable).
 
@@ -82,10 +82,11 @@ menu "Robot Controller Configuration"
     menu "Servo Control"
         config ROBOT_SERVO_GPIO
             int "Servo Signal GPIO"
-            default 4
-            range 0 48
+            default 16
+            range 0 39
             help
                 GPIO pin connected to SG90 servo signal.
+                Note: Avoid GPIO 4 on ESP32-CAM as it has the flash LED.
 
         config ROBOT_SERVO_MIN_PULSE_US
             int "Minimum Pulse Width (us)"
