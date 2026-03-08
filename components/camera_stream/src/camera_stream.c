@@ -21,7 +21,7 @@ static const char *STREAM_PART =
 /* Camera state */
 static struct {
     bool initialized;
-    camera_config_t config;
+    camera_stream_config_t config;
 } s_camera = {0};
 
 /* Stream URL path */
@@ -90,7 +90,7 @@ static esp_err_t stream_handler(httpd_req_t *req)
     return res;
 }
 
-esp_err_t camera_stream_init(const camera_config_t *config)
+esp_err_t camera_stream_init(const camera_stream_config_t *config)
 {
     if (config == NULL) {
         return ESP_ERR_INVALID_ARG;

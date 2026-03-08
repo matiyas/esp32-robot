@@ -5,6 +5,7 @@ idf_component_register(
     INCLUDE_DIRS
         "include"
     REQUIRES
-        hal
+        robot_hal
+        robot_core
         freertos
 )

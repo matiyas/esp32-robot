@@ -14,13 +14,13 @@ extern "C" {
 #endif
 
 /**
- * @brief Camera configuration
+ * @brief Camera stream configuration
  */
 typedef struct {
     int frame_size;           /**< Frame size enum (FRAMESIZE_VGA, etc.) */
     int jpeg_quality;         /**< JPEG quality 10-63 (lower = better) */
     int fb_count;             /**< Frame buffer count */
-} camera_config_t;
+} camera_stream_config_t;
 
 /**
  * @brief Initialize camera
@@ -28,7 +28,7 @@ typedef struct {
  * @param config Camera configuration
  * @return ESP_OK on success
  */
-esp_err_t camera_stream_init(const camera_config_t *config);
+esp_err_t camera_stream_init(const camera_stream_config_t *config);
 
 /**
  * @brief Register MJPEG stream handler

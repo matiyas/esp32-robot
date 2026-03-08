@@ -5,5 +5,6 @@ idf_component_register(
         "include"
     REQUIRES
         esp_http_server
-        esp_camera
+    PRIV_REQUIRES
+        espressif__esp32-camera
 )

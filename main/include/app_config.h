@@ -49,7 +49,11 @@ extern "C" {
 
 /* HTTP Server */
 #define APP_HTTP_PORT          CONFIG_ROBOT_HTTP_PORT
-#define APP_MOCK_MODE          CONFIG_ROBOT_ENABLE_MOCK_MODE
+#ifdef CONFIG_ROBOT_ENABLE_MOCK_MODE
+#define APP_MOCK_MODE          1
+#else
+#define APP_MOCK_MODE          0
+#endif
 
 /* Camera Configuration */
 #define APP_CAMERA_FRAME_SIZE  CONFIG_ROBOT_CAMERA_FRAME_SIZE

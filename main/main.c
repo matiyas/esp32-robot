@@ -143,7 +143,7 @@ static esp_err_t init_robot(void)
  */
 static esp_err_t init_camera(void)
 {
-    camera_config_t config = {
+    camera_stream_config_t config = {
         .frame_size = APP_CAMERA_FRAME_SIZE,
         .jpeg_quality = APP_CAMERA_JPEG_QUALITY,
         .fb_count = APP_CAMERA_FB_COUNT
