@@ -17,9 +17,9 @@ extern "C" {
  * @brief Camera stream configuration
  */
 typedef struct {
-    int frame_size;           /**< Frame size enum (FRAMESIZE_VGA, etc.) */
-    int jpeg_quality;         /**< JPEG quality 10-63 (lower = better) */
-    int fb_count;             /**< Frame buffer count */
+    int frame_size;   /**< Frame size enum (FRAMESIZE_VGA, etc.) */
+    int jpeg_quality; /**< JPEG quality 10-63 (lower = better) */
+    int fb_count;     /**< Frame buffer count */
 } camera_stream_config_t;
 
 /**

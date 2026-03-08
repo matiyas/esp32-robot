@@ -6,8 +6,8 @@
 #ifndef HAL_TYPES_H
 #define HAL_TYPES_H
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {

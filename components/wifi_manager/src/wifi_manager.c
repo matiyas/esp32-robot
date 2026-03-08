@@ -4,11 +4,14 @@
  */
 
 #include "wifi_manager.h"
+
+#include <esp_event.h>
 #include <esp_log.h>
 #include <esp_wifi.h>
-#include <esp_event.h>
+
 #include <freertos/FreeRTOS.h>
 #include <freertos/event_groups.h>
+
 #include <string.h>
 
 static const char *TAG = "wifi_manager";
@@ -28,12 +31,8 @@ static struct {
 /**
  * @brief WiFi event handler
  */
-static void wifi_event_handler(
-    void *arg,
-    esp_event_base_t event_base,
-    int32_t event_id,
-    void *event_data)
-{
+static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id,
+                               void *event_data) {
     (void)arg;
 
     if (event_base == WIFI_EVENT) {
@@ -54,16 +53,15 @@ static void wifi_event_handler(
     } else if (event_base == IP_EVENT) {
         if (event_id == IP_EVENT_STA_GOT_IP) {
             ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
-            snprintf(s_wifi.ip_address, sizeof(s_wifi.ip_address),
-                     IPSTR, IP2STR(&event->ip_info.ip));
+            snprintf(s_wifi.ip_address, sizeof(s_wifi.ip_address), IPSTR,
+                     IP2STR(&event->ip_info.ip));
             ESP_LOGI(TAG, "Got IP: %s", s_wifi.ip_address);
             xEventGroupSetBits(s_wifi.event_group, WIFI_CONNECTED_BIT);
         }
     }
 }
 
-esp_err_t wifi_manager_init(void)
-{
+esp_err_t wifi_manager_init(void) {
     if (s_wifi.initialized) {
         return ESP_OK;
     }
@@ -103,25 +101,15 @@ esp_err_t wifi_manager_init(void)
     }
 
     /* Register event handlers */
-    ret = esp_event_handler_instance_register(
-        WIFI_EVENT,
-        ESP_EVENT_ANY_ID,
-        &wifi_event_handler,
-        NULL,
-        NULL
-    );
+    ret = esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler,
+                                              NULL, NULL);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to register WiFi event handler");
         return ret;
     }
 
-    ret = esp_event_handler_instance_register(
-        IP_EVENT,
-        IP_EVENT_STA_GOT_IP,
-        &wifi_event_handler,
-        NULL,
-        NULL
-    );
+    ret = esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler,
+                                              NULL, NULL);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to register IP event handler");
         return ret;
@@ -133,8 +121,7 @@ esp_err_t wifi_manager_init(void)
     return ESP_OK;
 }
 
-esp_err_t wifi_manager_connect(const char *ssid, const char *password)
-{
+esp_err_t wifi_manager_connect(const char *ssid, const char *password) {
     if (!s_wifi.initialized) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -147,13 +134,11 @@ esp_err_t wifi_manager_connect(const char *ssid, const char *password)
     strncpy((char *)wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid) - 1);
 
     if (password != NULL) {
-        strncpy((char *)wifi_config.sta.password, password,
-                sizeof(wifi_config.sta.password) - 1);
+        strncpy((char *)wifi_config.sta.password, password, sizeof(wifi_config.sta.password) - 1);
     }
 
-    wifi_config.sta.threshold.authmode = (password && strlen(password) > 0)
-        ? WIFI_AUTH_WPA2_PSK
-        : WIFI_AUTH_OPEN;
+    wifi_config.sta.threshold.authmode =
+        (password && strlen(password) > 0) ? WIFI_AUTH_WPA2_PSK : WIFI_AUTH_OPEN;
 
     esp_err_t ret = esp_wifi_set_mode(WIFI_MODE_STA);
     if (ret != ESP_OK) {
@@ -178,8 +163,7 @@ esp_err_t wifi_manager_connect(const char *ssid, const char *password)
     return ESP_OK;
 }
 
-esp_err_t wifi_manager_disconnect(void)
-{
+esp_err_t wifi_manager_disconnect(void) {
     if (!s_wifi.initialized) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -190,28 +174,20 @@ esp_err_t wifi_manager_disconnect(void)
     return ESP_OK;
 }
 
-bool wifi_manager_wait_connected(uint32_t timeout_ms)
-{
+bool wifi_manager_wait_connected(uint32_t timeout_ms) {
     if (!s_wifi.initialized) {
         return false;
     }
 
-    TickType_t ticks =
-        (timeout_ms == UINT32_MAX) ? portMAX_DELAY : pdMS_TO_TICKS(timeout_ms);
+    TickType_t ticks = (timeout_ms == UINT32_MAX) ? portMAX_DELAY : pdMS_TO_TICKS(timeout_ms);
 
-    EventBits_t bits = xEventGroupWaitBits(
-        s_wifi.event_group,
-        WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
-        pdFALSE,
-        pdFALSE,
-        ticks
-    );
+    EventBits_t bits = xEventGroupWaitBits(s_wifi.event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
+                                           pdFALSE, pdFALSE, ticks);
 
     return (bits & WIFI_CONNECTED_BIT) != 0;
 }
 
-bool wifi_manager_is_connected(void)
-{
+bool wifi_manager_is_connected(void) {
     if (!s_wifi.initialized) {
         return false;
     }
@@ -220,8 +196,7 @@ bool wifi_manager_is_connected(void)
     return (bits & WIFI_CONNECTED_BIT) != 0;
 }
 
-esp_err_t wifi_manager_get_ip(char *buffer, size_t buffer_size)
-{
+esp_err_t wifi_manager_get_ip(char *buffer, size_t buffer_size) {
     if (buffer == NULL || buffer_size == 0) {
         return ESP_ERR_INVALID_ARG;
     }

@@ -4,11 +4,14 @@
  */
 
 #include "robot.h"
-#include "motor_control.h"
-#include "servo_control.h"
-#include "safety_handler.h"
+
 #include <esp_log.h>
+
 #include <string.h>
+
+#include "motor_control.h"
+#include "safety_handler.h"
+#include "servo_control.h"
 
 static const char *TAG = "robot";
 
@@ -18,8 +21,7 @@ static struct {
     robot_config_t config;
 } s_robot = {0};
 
-esp_err_t robot_init(const robot_config_t *config)
-{
+esp_err_t robot_init(const robot_config_t *config) {
     if (config == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -33,13 +35,8 @@ esp_err_t robot_init(const robot_config_t *config)
     return ESP_OK;
 }
 
-robot_result_t robot_move(robot_direction_t direction, uint32_t duration_ms)
-{
-    robot_result_t result = {
-        .success = false,
-        .duration_ms = 0,
-        .action = ROBOT_ACTION_STOP_ALL
-    };
+robot_result_t robot_move(robot_direction_t direction, uint32_t duration_ms) {
+    robot_result_t result = {.success = false, .duration_ms = 0, .action = ROBOT_ACTION_STOP_ALL};
 
     if (!s_robot.initialized) {
         ESP_LOGE(TAG, "Robot not initialized");
@@ -51,8 +48,7 @@ robot_result_t robot_move(robot_direction_t direction, uint32_t duration_ms)
         safety_validate_duration(duration_ms, s_robot.config.movement_timeout_ms);
 
     if (validated_duration != duration_ms && duration_ms > 0) {
-        ESP_LOGW(TAG, "Duration clamped from %lu to %lu ms",
-                 duration_ms, validated_duration);
+        ESP_LOGW(TAG, "Duration clamped from %lu to %lu ms", duration_ms, validated_duration);
     }
 
     esp_err_t err = ESP_OK;
@@ -100,8 +96,7 @@ robot_result_t robot_move(robot_direction_t direction, uint32_t duration_ms)
             safety_schedule_auto_stop(validated_duration);
         }
 
-        ESP_LOGI(TAG, "Move %s for %lu ms",
-                 robot_action_to_str(result.action), validated_duration);
+        ESP_LOGI(TAG, "Move %s for %lu ms", robot_action_to_str(result.action), validated_duration);
     } else {
         ESP_LOGE(TAG, "Move failed: %s", esp_err_to_name(err));
     }
@@ -109,13 +104,8 @@ robot_result_t robot_move(robot_direction_t direction, uint32_t duration_ms)
     return result;
 }
 
-robot_result_t robot_turret(robot_direction_t direction, uint32_t duration_ms)
-{
-    robot_result_t result = {
-        .success = false,
-        .duration_ms = 0,
-        .action = ROBOT_ACTION_STOP_ALL
-    };
+robot_result_t robot_turret(robot_direction_t direction, uint32_t duration_ms) {
+    robot_result_t result = {.success = false, .duration_ms = 0, .action = ROBOT_ACTION_STOP_ALL};
 
     if (!s_robot.initialized) {
         ESP_LOGE(TAG, "Robot not initialized");
@@ -159,13 +149,8 @@ robot_result_t robot_turret(robot_direction_t direction, uint32_t duration_ms)
     return result;
 }
 
-robot_result_t robot_stop(void)
-{
-    robot_result_t result = {
-        .action = ROBOT_ACTION_STOP_ALL,
-        .duration_ms = 0,
-        .success = true
-    };
+robot_result_t robot_stop(void) {
+    robot_result_t result = {.action = ROBOT_ACTION_STOP_ALL, .duration_ms = 0, .success = true};
 
     if (!s_robot.initialized) {
         ESP_LOGE(TAG, "Robot not initialized");
@@ -189,19 +174,15 @@ robot_result_t robot_stop(void)
     return result;
 }
 
-robot_status_t robot_get_status(void)
-{
-    robot_status_t status = {
-        .connected = s_robot.initialized,
-        .gpio_enabled = s_robot.config.gpio_enabled,
-        .camera_url = s_robot.config.camera_url
-    };
+robot_status_t robot_get_status(void) {
+    robot_status_t status = {.connected = s_robot.initialized,
+                             .gpio_enabled = s_robot.config.gpio_enabled,
+                             .camera_url = s_robot.config.camera_url};
 
     return status;
 }
 
-void robot_cleanup(void)
-{
+void robot_cleanup(void) {
     if (!s_robot.initialized) {
         return;
     }

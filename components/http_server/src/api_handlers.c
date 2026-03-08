@@ -4,14 +4,17 @@
  */
 
 #include "api_handlers.h"
-#include "api_helpers.h"
-#include "robot.h"
-#include "camera_stream.h"
+
 #include <esp_log.h>
+
 #include <cJSON.h>
-#include <string.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/stat.h>
+
+#include "api_helpers.h"
+#include "camera_stream.h"
+#include "robot.h"
 
 static const char *TAG = "api_handlers";
 
@@ -21,8 +24,7 @@ static const char *s_base_path = NULL;
 /**
  * @brief Serve static file from SPIFFS
  */
-static esp_err_t serve_static_file(httpd_req_t *req, const char *filename)
-{
+static esp_err_t serve_static_file(httpd_req_t *req, const char *filename) {
     if (s_base_path == NULL) {
         return api_send_error(req, 500, "SPIFFS not mounted");
     }
@@ -65,15 +67,13 @@ static esp_err_t serve_static_file(httpd_req_t *req, const char *filename)
 /**
  * @brief Handle OPTIONS preflight requests
  */
-static esp_err_t handle_options(httpd_req_t *req)
-{
+static esp_err_t handle_options(httpd_req_t *req) {
     api_set_cors_headers(req);
     httpd_resp_send(req, NULL, 0);
     return ESP_OK;
 }
 
-esp_err_t api_handle_move(httpd_req_t *req)
-{
+esp_err_t api_handle_move(httpd_req_t *req) {
     char body[API_MAX_BODY_SIZE];
 
     esp_err_t ret = api_read_body(req, body, sizeof(body));
@@ -116,16 +116,13 @@ esp_err_t api_handle_move(httpd_req_t *req)
     }
 
     char response[128];
-    snprintf(response, sizeof(response),
-             "\"action\":\"%s\",\"duration\":%lu",
-             robot_action_to_str(result.action),
-             (unsigned long)result.duration_ms);
+    snprintf(response, sizeof(response), "\"action\":\"%s\",\"duration\":%lu",
+             robot_action_to_str(result.action), (unsigned long)result.duration_ms);
 
     return api_send_success(req, response);
 }
 
-esp_err_t api_handle_turret(httpd_req_t *req)
-{
+esp_err_t api_handle_turret(httpd_req_t *req) {
     char body[API_MAX_BODY_SIZE];
 
     esp_err_t ret = api_read_body(req, body, sizeof(body));
@@ -173,15 +170,12 @@ esp_err_t api_handle_turret(httpd_req_t *req)
     }
 
     char response[128];
-    snprintf(response, sizeof(response),
-             "\"action\":\"%s\"",
-             robot_action_to_str(result.action));
+    snprintf(response, sizeof(response), "\"action\":\"%s\"", robot_action_to_str(result.action));
 
     return api_send_success(req, response);
 }
 
-esp_err_t api_handle_stop(httpd_req_t *req)
-{
+esp_err_t api_handle_stop(httpd_req_t *req) {
     robot_result_t result = robot_stop();
 
     if (!result.success) {
@@ -191,21 +185,17 @@ esp_err_t api_handle_stop(httpd_req_t *req)
     return api_send_success(req, "\"action\":\"stop\"");
 }
 
-esp_err_t api_handle_status(httpd_req_t *req)
-{
+esp_err_t api_handle_status(httpd_req_t *req) {
     robot_status_t status = robot_get_status();
 
     char response[256];
-    snprintf(response, sizeof(response),
-             "\"connected\":%s,\"gpio_enabled\":%s",
-             status.connected ? "true" : "false",
-             status.gpio_enabled ? "true" : "false");
+    snprintf(response, sizeof(response), "\"connected\":%s,\"gpio_enabled\":%s",
+             status.connected ? "true" : "false", status.gpio_enabled ? "true" : "false");
 
     return api_send_success(req, response);
 }
 
-esp_err_t api_handle_camera(httpd_req_t *req)
-{
+esp_err_t api_handle_camera(httpd_req_t *req) {
     if (!camera_stream_is_ready()) {
         return api_send_error(req, 503, "Camera not ready");
     }
@@ -213,14 +203,12 @@ esp_err_t api_handle_camera(httpd_req_t *req)
     const char *path = camera_stream_get_path();
 
     char response[128];
-    snprintf(response, sizeof(response),
-             "\"stream_url\":\"%s\"", path);
+    snprintf(response, sizeof(response), "\"stream_url\":\"%s\"", path);
 
     return api_send_success(req, response);
 }
 
-esp_err_t api_handle_health(httpd_req_t *req)
-{
+esp_err_t api_handle_health(httpd_req_t *req) {
     api_set_cors_headers(req);
     httpd_resp_set_type(req, "application/json");
 
@@ -228,21 +216,18 @@ esp_err_t api_handle_health(httpd_req_t *req)
     return httpd_resp_send(req, response, strlen(response));
 }
 
-esp_err_t api_handle_index(httpd_req_t *req)
-{
+esp_err_t api_handle_index(httpd_req_t *req) {
     return serve_static_file(req, "index.html");
 }
 
-esp_err_t api_handle_docs(httpd_req_t *req)
-{
+esp_err_t api_handle_docs(httpd_req_t *req) {
     return serve_static_file(req, "docs.html");
 }
 
 /**
  * @brief Generic static file handler
  */
-static esp_err_t static_file_handler(httpd_req_t *req)
-{
+static esp_err_t static_file_handler(httpd_req_t *req) {
     const char *uri = req->uri;
 
     /* Skip leading slash */
@@ -253,8 +238,7 @@ static esp_err_t static_file_handler(httpd_req_t *req)
     return serve_static_file(req, uri);
 }
 
-esp_err_t api_handlers_register(httpd_handle_t server, const char *base_path)
-{
+esp_err_t api_handlers_register(httpd_handle_t server, const char *base_path) {
     if (server == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -263,74 +247,36 @@ esp_err_t api_handlers_register(httpd_handle_t server, const char *base_path)
 
     /* API routes */
     static const httpd_uri_t routes[] = {
-        {
-            .uri = "/api/v1/move",
-            .method = HTTP_POST,
-            .handler = api_handle_move,
-            .user_ctx = NULL
-        },
-        {
-            .uri = "/api/v1/turret",
-            .method = HTTP_POST,
-            .handler = api_handle_turret,
-            .user_ctx = NULL
-        },
-        {
-            .uri = "/api/v1/stop",
-            .method = HTTP_POST,
-            .handler = api_handle_stop,
-            .user_ctx = NULL
-        },
-        {
-            .uri = "/api/v1/status",
-            .method = HTTP_GET,
-            .handler = api_handle_status,
-            .user_ctx = NULL
-        },
-        {
-            .uri = "/api/v1/camera",
-            .method = HTTP_GET,
-            .handler = api_handle_camera,
-            .user_ctx = NULL
-        },
-        {
-            .uri = "/health",
-            .method = HTTP_GET,
-            .handler = api_handle_health,
-            .user_ctx = NULL
-        },
-        {
-            .uri = "/",
-            .method = HTTP_GET,
-            .handler = api_handle_index,
-            .user_ctx = NULL
-        },
-        {
-            .uri = "/docs",
-            .method = HTTP_GET,
-            .handler = api_handle_docs,
-            .user_ctx = NULL
-        },
+        {.uri = "/api/v1/move", .method = HTTP_POST, .handler = api_handle_move, .user_ctx = NULL},
+        {.uri = "/api/v1/turret",
+         .method = HTTP_POST,
+         .handler = api_handle_turret,
+         .user_ctx = NULL},
+        {.uri = "/api/v1/stop", .method = HTTP_POST, .handler = api_handle_stop, .user_ctx = NULL},
+        {.uri = "/api/v1/status",
+         .method = HTTP_GET,
+         .handler = api_handle_status,
+         .user_ctx = NULL},
+        {.uri = "/api/v1/camera",
+         .method = HTTP_GET,
+         .handler = api_handle_camera,
+         .user_ctx = NULL},
+        {.uri = "/health", .method = HTTP_GET, .handler = api_handle_health, .user_ctx = NULL},
+        {.uri = "/", .method = HTTP_GET, .handler = api_handle_index, .user_ctx = NULL},
+        {.uri = "/docs", .method = HTTP_GET, .handler = api_handle_docs, .user_ctx = NULL},
         /* CORS preflight handlers */
-        {
-            .uri = "/api/v1/move",
-            .method = HTTP_OPTIONS,
-            .handler = handle_options,
-            .user_ctx = NULL
-        },
-        {
-            .uri = "/api/v1/turret",
-            .method = HTTP_OPTIONS,
-            .handler = handle_options,
-            .user_ctx = NULL
-        },
-        {
-            .uri = "/api/v1/stop",
-            .method = HTTP_OPTIONS,
-            .handler = handle_options,
-            .user_ctx = NULL
-        }
-    };
+        {.uri = "/api/v1/move",
+         .method = HTTP_OPTIONS,
+         .handler = handle_options,
+         .user_ctx = NULL},
+        {.uri = "/api/v1/turret",
+         .method = HTTP_OPTIONS,
+         .handler = handle_options,
+         .user_ctx = NULL},
+        {.uri = "/api/v1/stop",
+         .method = HTTP_OPTIONS,
+         .handler = handle_options,
+         .user_ctx = NULL}};
 
     for (size_t i = 0; i < sizeof(routes) / sizeof(routes[0]); i++) {
         esp_err_t ret = httpd_register_uri_handler(server, &routes[i]);
@@ -341,20 +287,14 @@ esp_err_t api_handlers_register(httpd_handle_t server, const char *base_path)
     }
 
     /* Static file routes */
-    static const char *static_files[] = {
-        "/style.css",
-        "/api-client.js",
-        "/robot-controller.js",
-        "/openapi.yaml"
-    };
+    static const char *static_files[] = {"/style.css", "/api-client.js", "/robot-controller.js",
+                                         "/openapi.yaml"};
 
     for (size_t i = 0; i < sizeof(static_files) / sizeof(static_files[0]); i++) {
-        httpd_uri_t static_route = {
-            .uri = static_files[i],
-            .method = HTTP_GET,
-            .handler = static_file_handler,
-            .user_ctx = NULL
-        };
+        httpd_uri_t static_route = {.uri = static_files[i],
+                                    .method = HTTP_GET,
+                                    .handler = static_file_handler,
+                                    .user_ctx = NULL};
 
         esp_err_t ret = httpd_register_uri_handler(server, &static_route);
         if (ret != ESP_OK) {

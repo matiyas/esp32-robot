@@ -71,13 +71,13 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    container: espressif/idf:v5.2
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build and run tests
+      - name: Build and run host tests
         run: |
-          . $IDF_PATH/export.sh
-          cd test
-          idf.py set-target esp32s3
-          idf.py build
+          cd test/host
+          mkdir -p build && cd build
+          cmake ..
+          make -j$(nproc)
+          ./robot_test

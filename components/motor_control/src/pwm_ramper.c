@@ -4,10 +4,12 @@
  */
 
 #include "pwm_ramper.h"
+
 #include <esp_log.h>
+
 #include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
 #include <freertos/semphr.h>
+#include <freertos/task.h>
 
 static const char *TAG = "pwm_ramper";
 
@@ -26,8 +28,7 @@ static struct {
 /**
  * @brief Ramp task - runs in background
  */
-static void ramp_task(void *arg)
-{
+static void ramp_task(void *arg) {
     (void)arg;
 
     while (1) {
@@ -42,19 +43,15 @@ static void ramp_task(void *arg)
         s_ramper.ramp_active = true;
         xSemaphoreGive(s_ramper.mutex);
 
-        uint32_t step_delay_ms =
-            s_ramper.config.ramp_duration_ms / s_ramper.config.num_steps;
-        uint8_t duty_step =
-            s_ramper.config.max_duty_percent / s_ramper.config.num_steps;
+        uint32_t step_delay_ms = s_ramper.config.ramp_duration_ms / s_ramper.config.num_steps;
+        uint8_t duty_step = s_ramper.config.max_duty_percent / s_ramper.config.num_steps;
 
         if (duty_step == 0) {
             duty_step = 1;
         }
 
-        ESP_LOGD(TAG, "Starting ramp: %lu ms, %d steps, %d%% max",
-                 s_ramper.config.ramp_duration_ms,
-                 s_ramper.config.num_steps,
-                 s_ramper.config.max_duty_percent);
+        ESP_LOGD(TAG, "Starting ramp: %lu ms, %d steps, %d%% max", s_ramper.config.ramp_duration_ms,
+                 s_ramper.config.num_steps, s_ramper.config.max_duty_percent);
 
         s_ramper.current_duty = 0;
 
@@ -87,8 +84,7 @@ static void ramp_task(void *arg)
     }
 }
 
-esp_err_t pwm_ramper_init(hal_pwm_channel_t channel, const pwm_ramper_config_t *config)
-{
+esp_err_t pwm_ramper_init(hal_pwm_channel_t channel, const pwm_ramper_config_t *config) {
     if (config == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -112,14 +108,7 @@ esp_err_t pwm_ramper_init(hal_pwm_channel_t channel, const pwm_ramper_config_t *
     }
 
     /* Create ramp task */
-    BaseType_t ret = xTaskCreate(
-        ramp_task,
-        "pwm_ramp",
-        2048,
-        NULL,
-        5,
-        &s_ramper.task_handle
-    );
+    BaseType_t ret = xTaskCreate(ramp_task, "pwm_ramp", 2048, NULL, 5, &s_ramper.task_handle);
 
     if (ret != pdPASS) {
         ESP_LOGE(TAG, "Failed to create ramp task");
@@ -129,14 +118,13 @@ esp_err_t pwm_ramper_init(hal_pwm_channel_t channel, const pwm_ramper_config_t *
 
     s_ramper.initialized = true;
 
-    ESP_LOGI(TAG, "PWM ramper initialized (duration=%lu ms, steps=%d)",
-             config->ramp_duration_ms, config->num_steps);
+    ESP_LOGI(TAG, "PWM ramper initialized (duration=%lu ms, steps=%d)", config->ramp_duration_ms,
+             config->num_steps);
 
     return ESP_OK;
 }
 
-void pwm_ramper_start(void)
-{
+void pwm_ramper_start(void) {
     if (!s_ramper.initialized) {
         return;
     }
@@ -155,8 +143,7 @@ void pwm_ramper_start(void)
     xTaskNotifyGive(s_ramper.task_handle);
 }
 
-void pwm_ramper_stop(void)
-{
+void pwm_ramper_stop(void) {
     if (!s_ramper.initialized) {
         return;
     }
@@ -175,8 +162,7 @@ void pwm_ramper_stop(void)
     s_ramper.stop_requested = false;
 }
 
-void pwm_ramper_set_duty(uint8_t duty_percent)
-{
+void pwm_ramper_set_duty(uint8_t duty_percent) {
     if (!s_ramper.initialized) {
         return;
     }
@@ -193,13 +179,11 @@ void pwm_ramper_set_duty(uint8_t duty_percent)
     hal_pwm_set_duty(s_ramper.channel, duty_percent);
 }
 
-bool pwm_ramper_is_active(void)
-{
+bool pwm_ramper_is_active(void) {
     return s_ramper.ramp_active;
 }
 
-void pwm_ramper_cleanup(void)
-{
+void pwm_ramper_cleanup(void) {
     if (!s_ramper.initialized) {
         return;
     }

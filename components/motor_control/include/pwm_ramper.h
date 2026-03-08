@@ -9,10 +9,12 @@
 #ifndef PWM_RAMPER_H
 #define PWM_RAMPER_H
 
-#include "hal_pwm.h"
 #include <esp_err.h>
-#include <stdint.h>
+
 #include <stdbool.h>
+#include <stdint.h>
+
+#include "hal_pwm.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -22,9 +24,9 @@ extern "C" {
  * @brief PWM ramper configuration
  */
 typedef struct {
-    uint32_t ramp_duration_ms;  /**< Total ramp time (default: 500) */
-    uint8_t num_steps;          /**< Number of duty cycle steps (default: 25) */
-    uint8_t max_duty_percent;   /**< Maximum duty cycle 0-100 (default: 100) */
+    uint32_t ramp_duration_ms; /**< Total ramp time (default: 500) */
+    uint8_t num_steps;         /**< Number of duty cycle steps (default: 25) */
+    uint8_t max_duty_percent;  /**< Maximum duty cycle 0-100 (default: 100) */
 } pwm_ramper_config_t;
 
 /**

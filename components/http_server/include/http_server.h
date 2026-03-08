@@ -8,8 +8,9 @@
 
 #include <esp_err.h>
 #include <esp_http_server.h>
-#include <stdint.h>
+
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -19,9 +20,9 @@ extern "C" {
  * @brief HTTP server configuration
  */
 typedef struct {
-    uint16_t port;             /**< Server port (default: 80) */
-    const char *base_path;     /**< SPIFFS base path for static files */
-    bool auth_enabled;         /**< Enable authentication (future) */
+    uint16_t port;         /**< Server port (default: 80) */
+    const char *base_path; /**< SPIFFS base path for static files */
+    bool auth_enabled;     /**< Enable authentication (future) */
 } http_server_config_t;
 
 /**

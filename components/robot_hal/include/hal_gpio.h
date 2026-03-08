@@ -9,9 +9,11 @@
 #ifndef HAL_GPIO_H
 #define HAL_GPIO_H
 
-#include "hal_types.h"
 #include <esp_err.h>
+
 #include <driver/gpio.h>
+
+#include "hal_types.h"
 
 #ifdef __cplusplus
 extern "C" {

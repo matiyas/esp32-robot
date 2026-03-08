@@ -4,7 +4,9 @@
  */
 
 #include "hal_pwm.h"
+
 #include <esp_log.h>
+
 #include <driver/ledc.h>
 
 static const char *TAG = "hal_pwm";
@@ -20,8 +22,7 @@ static uint32_t channel_freq[HAL_PWM_MAX_CHANNELS] = {0};
 /**
  * @brief Find next available LEDC channel
  */
-static hal_pwm_channel_t find_free_channel(void)
-{
+static hal_pwm_channel_t find_free_channel(void) {
     for (uint8_t i = 0; i < HAL_PWM_MAX_CHANNELS; i++) {
         if (!channel_used[i]) {
             return i;
@@ -30,8 +31,7 @@ static hal_pwm_channel_t find_free_channel(void)
     return HAL_PWM_CHANNEL_INVALID;
 }
 
-esp_err_t hal_pwm_init(gpio_num_t pin, uint32_t frequency_hz, hal_pwm_channel_t *channel)
-{
+esp_err_t hal_pwm_init(gpio_num_t pin, uint32_t frequency_hz, hal_pwm_channel_t *channel) {
     if (channel == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -43,13 +43,12 @@ esp_err_t hal_pwm_init(gpio_num_t pin, uint32_t frequency_hz, hal_pwm_channel_t 
     }
 
     /* Configure LEDC timer */
-    ledc_timer_config_t timer_conf = {
-        .speed_mode = LEDC_LOW_SPEED_MODE,
-        .timer_num = (ledc_timer_t)(ch / 2),  /* 2 channels per timer */
-        .duty_resolution = LEDC_TIMER_RESOLUTION,
-        .freq_hz = frequency_hz,
-        .clk_cfg = LEDC_AUTO_CLK
-    };
+    ledc_timer_config_t timer_conf = {.speed_mode = LEDC_LOW_SPEED_MODE,
+                                      .timer_num =
+                                          (ledc_timer_t)(ch / 2), /* 2 channels per timer */
+                                      .duty_resolution = LEDC_TIMER_RESOLUTION,
+                                      .freq_hz = frequency_hz,
+                                      .clk_cfg = LEDC_AUTO_CLK};
 
     esp_err_t ret = ledc_timer_config(&timer_conf);
     if (ret != ESP_OK) {
@@ -58,15 +57,13 @@ esp_err_t hal_pwm_init(gpio_num_t pin, uint32_t frequency_hz, hal_pwm_channel_t 
     }
 
     /* Configure LEDC channel */
-    ledc_channel_config_t channel_conf = {
-        .speed_mode = LEDC_LOW_SPEED_MODE,
-        .channel = (ledc_channel_t)ch,
-        .timer_sel = (ledc_timer_t)(ch / 2),
-        .intr_type = LEDC_INTR_DISABLE,
-        .gpio_num = pin,
-        .duty = 0,
-        .hpoint = 0
-    };
+    ledc_channel_config_t channel_conf = {.speed_mode = LEDC_LOW_SPEED_MODE,
+                                          .channel = (ledc_channel_t)ch,
+                                          .timer_sel = (ledc_timer_t)(ch / 2),
+                                          .intr_type = LEDC_INTR_DISABLE,
+                                          .gpio_num = pin,
+                                          .duty = 0,
+                                          .hpoint = 0};
 
     ret = ledc_channel_config(&channel_conf);
     if (ret != ESP_OK) {
@@ -78,14 +75,12 @@ esp_err_t hal_pwm_init(gpio_num_t pin, uint32_t frequency_hz, hal_pwm_channel_t 
     channel_freq[ch] = frequency_hz;
     *channel = ch;
 
-    ESP_LOGI(TAG, "PWM channel %d initialized on GPIO %d at %lu Hz",
-             ch, pin, frequency_hz);
+    ESP_LOGI(TAG, "PWM channel %d initialized on GPIO %d at %lu Hz", ch, pin, frequency_hz);
 
     return ESP_OK;
 }
 
-esp_err_t hal_pwm_set_duty(hal_pwm_channel_t channel, uint8_t duty_percent)
-{
+esp_err_t hal_pwm_set_duty(hal_pwm_channel_t channel, uint8_t duty_percent) {
     if (!hal_pwm_is_valid(channel)) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -108,8 +103,7 @@ esp_err_t hal_pwm_set_duty(hal_pwm_channel_t channel, uint8_t duty_percent)
     return ret;
 }
 
-esp_err_t hal_pwm_set_servo_pulse(hal_pwm_channel_t channel, uint16_t pulse_us)
-{
+esp_err_t hal_pwm_set_servo_pulse(hal_pwm_channel_t channel, uint16_t pulse_us) {
     if (!hal_pwm_is_valid(channel)) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -138,8 +132,7 @@ esp_err_t hal_pwm_set_servo_pulse(hal_pwm_channel_t channel, uint16_t pulse_us)
     return ret;
 }
 
-void hal_pwm_stop(hal_pwm_channel_t channel)
-{
+void hal_pwm_stop(hal_pwm_channel_t channel) {
     if (!hal_pwm_is_valid(channel)) {
         return;
     }
@@ -149,8 +142,7 @@ void hal_pwm_stop(hal_pwm_channel_t channel)
     ESP_LOGD(TAG, "PWM channel %d stopped", channel);
 }
 
-void hal_pwm_cleanup(hal_pwm_channel_t channel)
-{
+void hal_pwm_cleanup(hal_pwm_channel_t channel) {
     if (!hal_pwm_is_valid(channel)) {
         return;
     }
@@ -163,7 +155,6 @@ void hal_pwm_cleanup(hal_pwm_channel_t channel)
     ESP_LOGI(TAG, "PWM channel %d cleaned up", channel);
 }
 
-bool hal_pwm_is_valid(hal_pwm_channel_t channel)
-{
+bool hal_pwm_is_valid(hal_pwm_channel_t channel) {
     return channel < HAL_PWM_MAX_CHANNELS && channel_used[channel];
 }

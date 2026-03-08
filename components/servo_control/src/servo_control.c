@@ -4,11 +4,14 @@
  */
 
 #include "servo_control.h"
-#include "hal_pwm.h"
-#include "hal_types.h"
+
 #include <esp_log.h>
+
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+
+#include "hal_pwm.h"
+#include "hal_types.h"
 
 static const char *TAG = "servo_control";
 
@@ -23,8 +26,7 @@ static struct {
 /**
  * @brief Convert angle to pulse width
  */
-static uint16_t angle_to_pulse(uint8_t angle)
-{
+static uint16_t angle_to_pulse(uint8_t angle) {
     if (angle < s_servo.config.min_angle) {
         angle = s_servo.config.min_angle;
     }
@@ -32,14 +34,11 @@ static uint16_t angle_to_pulse(uint8_t angle)
         angle = s_servo.config.max_angle;
     }
 
-    uint16_t pulse_range =
-        s_servo.config.max_pulse_us - s_servo.config.min_pulse_us;
-    uint8_t angle_range =
-        s_servo.config.max_angle - s_servo.config.min_angle;
+    uint16_t pulse_range = s_servo.config.max_pulse_us - s_servo.config.min_pulse_us;
+    uint8_t angle_range = s_servo.config.max_angle - s_servo.config.min_angle;
 
-    uint16_t pulse =
-        s_servo.config.min_pulse_us +
-        ((angle - s_servo.config.min_angle) * pulse_range) / angle_range;
+    uint16_t pulse = s_servo.config.min_pulse_us +
+                     ((angle - s_servo.config.min_angle) * pulse_range) / angle_range;
 
     return pulse;
 }
@@ -47,8 +46,7 @@ static uint16_t angle_to_pulse(uint8_t angle)
 /**
  * @brief Set servo to specific angle (internal)
  */
-static esp_err_t set_angle_internal(uint8_t angle)
-{
+static esp_err_t set_angle_internal(uint8_t angle) {
     uint16_t pulse = angle_to_pulse(angle);
     esp_err_t ret = hal_pwm_set_servo_pulse(s_servo.pwm_channel, pulse);
 
@@ -59,18 +57,13 @@ static esp_err_t set_angle_internal(uint8_t angle)
     return ret;
 }
 
-esp_err_t servo_init(const servo_config_t *config)
-{
+esp_err_t servo_init(const servo_config_t *config) {
     if (config == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
 
     /* Initialize PWM for servo (50Hz) */
-    esp_err_t ret = hal_pwm_init(
-        config->signal_pin,
-        HAL_SERVO_PWM_FREQ,
-        &s_servo.pwm_channel
-    );
+    esp_err_t ret = hal_pwm_init(config->signal_pin, HAL_SERVO_PWM_FREQ, &s_servo.pwm_channel);
 
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "PWM init failed");
@@ -88,19 +81,17 @@ esp_err_t servo_init(const servo_config_t *config)
         return ret;
     }
 
-    ESP_LOGI(TAG, "Servo initialized (pin=%d, default=%d°)",
-             config->signal_pin, config->default_angle);
+    ESP_LOGI(TAG, "Servo initialized (pin=%d, default=%d°)", config->signal_pin,
+             config->default_angle);
 
     return ESP_OK;
 }
 
-uint8_t servo_get_angle(void)
-{
+uint8_t servo_get_angle(void) {
     return s_servo.current_angle;
 }
 
-esp_err_t servo_move_to(uint8_t angle, bool smooth)
-{
+esp_err_t servo_move_to(uint8_t angle, bool smooth) {
     if (!s_servo.initialized) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -128,8 +119,7 @@ esp_err_t servo_move_to(uint8_t angle, bool smooth)
         int next = current + (direction * step);
 
         /* Clamp to target */
-        if ((direction > 0 && next > angle) ||
-            (direction < 0 && next < angle)) {
+        if ((direction > 0 && next > angle) || (direction < 0 && next < angle)) {
             next = angle;
         }
 
@@ -146,8 +136,7 @@ esp_err_t servo_move_to(uint8_t angle, bool smooth)
     return ESP_OK;
 }
 
-esp_err_t servo_step_left(void)
-{
+esp_err_t servo_step_left(void) {
     if (!s_servo.initialized) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -163,8 +152,7 @@ esp_err_t servo_step_left(void)
     return servo_move_to((uint8_t)new_angle, true);
 }
 
-esp_err_t servo_step_right(void)
-{
+esp_err_t servo_step_right(void) {
     if (!s_servo.initialized) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -180,8 +168,7 @@ esp_err_t servo_step_right(void)
     return servo_move_to((uint8_t)new_angle, true);
 }
 
-esp_err_t servo_center(void)
-{
+esp_err_t servo_center(void) {
     if (!s_servo.initialized) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -191,13 +178,11 @@ esp_err_t servo_center(void)
     return servo_move_to(s_servo.config.default_angle, true);
 }
 
-void servo_stop(void)
-{
+void servo_stop(void) {
     /* No-op for servo - it holds position */
 }
 
-void servo_release(void)
-{
+void servo_release(void) {
     if (!s_servo.initialized) {
         return;
     }
@@ -206,8 +191,7 @@ void servo_release(void)
     ESP_LOGD(TAG, "Servo released");
 }
 
-void servo_cleanup(void)
-{
+void servo_cleanup(void) {
     if (!s_servo.initialized) {
         return;
     }

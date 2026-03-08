@@ -4,15 +4,17 @@
  */
 
 #include "api_helpers.h"
-#include "robot_types.h"
+
 #include <esp_log.h>
-#include <string.h>
+
 #include <stdio.h>
+#include <string.h>
+
+#include "robot_types.h"
 
 static const char *TAG = "api_helpers";
 
-esp_err_t api_send_success(httpd_req_t *req, const char *json_body)
-{
+esp_err_t api_send_success(httpd_req_t *req, const char *json_body) {
     api_set_cors_headers(req);
     httpd_resp_set_type(req, "application/json");
 
@@ -20,11 +22,9 @@ esp_err_t api_send_success(httpd_req_t *req, const char *json_body)
     int len;
 
     if (json_body == NULL || strlen(json_body) == 0) {
-        len = snprintf(response, sizeof(response),
-                       "{\"success\":true}");
+        len = snprintf(response, sizeof(response), "{\"success\":true}");
     } else {
-        len = snprintf(response, sizeof(response),
-                       "{\"success\":true,%s}", json_body);
+        len = snprintf(response, sizeof(response), "{\"success\":true,%s}", json_body);
     }
 
     if (len >= (int)sizeof(response)) {
@@ -35,8 +35,7 @@ esp_err_t api_send_success(httpd_req_t *req, const char *json_body)
     return httpd_resp_send(req, response, len);
 }
 
-esp_err_t api_send_error(httpd_req_t *req, int status_code, const char *message)
-{
+esp_err_t api_send_error(httpd_req_t *req, int status_code, const char *message) {
     api_set_cors_headers(req);
     httpd_resp_set_type(req, "application/json");
 
@@ -45,15 +44,13 @@ esp_err_t api_send_error(httpd_req_t *req, int status_code, const char *message)
     httpd_resp_set_status(req, status_str);
 
     char response[256];
-    int len = snprintf(response, sizeof(response),
-                       "{\"success\":false,\"error\":\"%s\"}",
+    int len = snprintf(response, sizeof(response), "{\"success\":false,\"error\":\"%s\"}",
                        message ? message : "Unknown error");
 
     return httpd_resp_send(req, response, len);
 }
 
-esp_err_t api_read_body(httpd_req_t *req, char *buffer, size_t buffer_size)
-{
+esp_err_t api_read_body(httpd_req_t *req, char *buffer, size_t buffer_size) {
     if (req == NULL || buffer == NULL || buffer_size == 0) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -81,8 +78,7 @@ esp_err_t api_read_body(httpd_req_t *req, char *buffer, size_t buffer_size)
     return ESP_OK;
 }
 
-bool api_parse_direction(const char *direction, int *result)
-{
+bool api_parse_direction(const char *direction, int *result) {
     if (direction == NULL || result == NULL) {
         return false;
     }
@@ -107,17 +103,13 @@ bool api_parse_direction(const char *direction, int *result)
     return false;
 }
 
-void api_set_cors_headers(httpd_req_t *req)
-{
+void api_set_cors_headers(httpd_req_t *req) {
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Methods",
-                       "GET, POST, PUT, DELETE, OPTIONS");
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Headers",
-                       "Content-Type, Authorization");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Headers", "Content-Type, Authorization");
 }
 
-const char *api_get_mime_type(const char *filename)
-{
+const char *api_get_mime_type(const char *filename) {
     if (filename == NULL) {
         return "application/octet-stream";
     }

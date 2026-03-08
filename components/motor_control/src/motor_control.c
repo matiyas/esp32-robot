@@ -4,11 +4,14 @@
  */
 
 #include "motor_control.h"
-#include "pwm_ramper.h"
+
+#include <esp_log.h>
+
+#include <string.h>
+
 #include "hal_gpio.h"
 #include "hal_pwm.h"
-#include <esp_log.h>
-#include <string.h>
+#include "pwm_ramper.h"
 
 static const char *TAG = "motor_control";
 
@@ -22,8 +25,7 @@ static struct {
 /**
  * @brief Set motor direction using DRV8833 truth table
  */
-static void set_motor_direction(const motor_pins_t *motor, motor_mode_t mode)
-{
+static void set_motor_direction(const motor_pins_t *motor, motor_mode_t mode) {
     switch (mode) {
         case MOTOR_MODE_FORWARD:
             hal_gpio_set_level(motor->in1, 1);
@@ -45,8 +47,7 @@ static void set_motor_direction(const motor_pins_t *motor, motor_mode_t mode)
     }
 }
 
-esp_err_t motor_control_init(const motor_control_config_t *config)
-{
+esp_err_t motor_control_init(const motor_control_config_t *config) {
     if (config == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -55,17 +56,21 @@ esp_err_t motor_control_init(const motor_control_config_t *config)
 
     /* Initialize left motor GPIO */
     ret = hal_gpio_init_output(config->left_motor.in1);
-    if (ret != ESP_OK) return ret;
+    if (ret != ESP_OK)
+        return ret;
 
     ret = hal_gpio_init_output(config->left_motor.in2);
-    if (ret != ESP_OK) return ret;
+    if (ret != ESP_OK)
+        return ret;
 
     /* Initialize right motor GPIO */
     ret = hal_gpio_init_output(config->right_motor.in1);
-    if (ret != ESP_OK) return ret;
+    if (ret != ESP_OK)
+        return ret;
 
     ret = hal_gpio_init_output(config->right_motor.in2);
-    if (ret != ESP_OK) return ret;
+    if (ret != ESP_OK)
+        return ret;
 
     /* Initialize PWM for enable pin */
     ret = hal_pwm_init(config->enable_pin, config->pwm_frequency_hz, &s_motor.pwm_channel);
@@ -75,11 +80,9 @@ esp_err_t motor_control_init(const motor_control_config_t *config)
     }
 
     /* Initialize PWM ramper */
-    pwm_ramper_config_t ramper_config = {
-        .ramp_duration_ms = config->ramp_duration_ms,
-        .num_steps = config->ramp_steps,
-        .max_duty_percent = 100
-    };
+    pwm_ramper_config_t ramper_config = {.ramp_duration_ms = config->ramp_duration_ms,
+                                         .num_steps = config->ramp_steps,
+                                         .max_duty_percent = 100};
     ret = pwm_ramper_init(s_motor.pwm_channel, &ramper_config);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "PWM ramper init failed");
@@ -92,14 +95,13 @@ esp_err_t motor_control_init(const motor_control_config_t *config)
     /* Set motors to coast mode initially */
     motor_stop_all();
 
-    ESP_LOGI(TAG, "Motor control initialized (freq=%lu Hz, ramp=%lu ms)",
-             config->pwm_frequency_hz, config->ramp_duration_ms);
+    ESP_LOGI(TAG, "Motor control initialized (freq=%lu Hz, ramp=%lu ms)", config->pwm_frequency_hz,
+             config->ramp_duration_ms);
 
     return ESP_OK;
 }
 
-esp_err_t motor_move_forward(uint32_t duration_ms)
-{
+esp_err_t motor_move_forward(uint32_t duration_ms) {
     if (!s_motor.initialized) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -113,8 +115,7 @@ esp_err_t motor_move_forward(uint32_t duration_ms)
     return ESP_OK;
 }
 
-esp_err_t motor_move_backward(uint32_t duration_ms)
-{
+esp_err_t motor_move_backward(uint32_t duration_ms) {
     if (!s_motor.initialized) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -128,8 +129,7 @@ esp_err_t motor_move_backward(uint32_t duration_ms)
     return ESP_OK;
 }
 
-esp_err_t motor_turn_left(uint32_t duration_ms)
-{
+esp_err_t motor_turn_left(uint32_t duration_ms) {
     if (!s_motor.initialized) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -144,8 +144,7 @@ esp_err_t motor_turn_left(uint32_t duration_ms)
     return ESP_OK;
 }
 
-esp_err_t motor_turn_right(uint32_t duration_ms)
-{
+esp_err_t motor_turn_right(uint32_t duration_ms) {
     if (!s_motor.initialized) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -160,8 +159,7 @@ esp_err_t motor_turn_right(uint32_t duration_ms)
     return ESP_OK;
 }
 
-esp_err_t motor_stop_all(void)
-{
+esp_err_t motor_stop_all(void) {
     if (!s_motor.initialized) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -178,8 +176,7 @@ esp_err_t motor_stop_all(void)
     return ESP_OK;
 }
 
-void motor_control_cleanup(void)
-{
+void motor_control_cleanup(void) {
     if (!s_motor.initialized) {
         return;
     }
@@ -191,12 +188,8 @@ void motor_control_cleanup(void)
     hal_pwm_cleanup(s_motor.pwm_channel);
 
     /* Reset GPIO pins */
-    gpio_num_t pins[] = {
-        s_motor.config.left_motor.in1,
-        s_motor.config.left_motor.in2,
-        s_motor.config.right_motor.in1,
-        s_motor.config.right_motor.in2
-    };
+    gpio_num_t pins[] = {s_motor.config.left_motor.in1, s_motor.config.left_motor.in2,
+                         s_motor.config.right_motor.in1, s_motor.config.right_motor.in2};
     hal_gpio_reset_multiple(pins, 4);
 
     s_motor.initialized = false;

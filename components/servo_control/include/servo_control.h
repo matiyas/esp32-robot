@@ -10,9 +10,11 @@
 #define SERVO_CONTROL_H
 
 #include <esp_err.h>
+
 #include <driver/gpio.h>
-#include <stdint.h>
+
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -22,15 +24,15 @@ extern "C" {
  * @brief Servo configuration
  */
 typedef struct {
-    gpio_num_t signal_pin;         /**< PWM signal GPIO */
-    uint16_t min_pulse_us;         /**< Min pulse width (default: 500) */
-    uint16_t max_pulse_us;         /**< Max pulse width (default: 2400) */
-    uint8_t min_angle;             /**< Min angle degrees (default: 0) */
-    uint8_t max_angle;             /**< Max angle degrees (default: 180) */
-    uint8_t default_angle;         /**< Default position (default: 90) */
-    uint8_t step_angle;            /**< Step per command (default: 10) */
-    uint8_t smooth_step_degrees;   /**< Interpolation step (default: 2) */
-    uint8_t smooth_delay_ms;       /**< Delay between steps (default: 15) */
+    gpio_num_t signal_pin;       /**< PWM signal GPIO */
+    uint16_t min_pulse_us;       /**< Min pulse width (default: 500) */
+    uint16_t max_pulse_us;       /**< Max pulse width (default: 2400) */
+    uint8_t min_angle;           /**< Min angle degrees (default: 0) */
+    uint8_t max_angle;           /**< Max angle degrees (default: 180) */
+    uint8_t default_angle;       /**< Default position (default: 90) */
+    uint8_t step_angle;          /**< Step per command (default: 10) */
+    uint8_t smooth_step_degrees; /**< Interpolation step (default: 2) */
+    uint8_t smooth_delay_ms;     /**< Delay between steps (default: 15) */
 } servo_config_t;
 
 /**

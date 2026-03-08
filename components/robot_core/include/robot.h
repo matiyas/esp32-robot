@@ -10,10 +10,12 @@
 #ifndef ROBOT_H
 #define ROBOT_H
 
-#include "robot_types.h"
 #include <esp_err.h>
-#include <stdint.h>
+
 #include <stdbool.h>
+#include <stdint.h>
+
+#include "robot_types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,28 +25,28 @@ extern "C" {
  * @brief Robot configuration structure
  */
 typedef struct {
-    uint32_t movement_timeout_ms;  /**< Max movement duration (default: 5000) */
-    uint32_t turret_timeout_ms;    /**< Max turret duration (default: 2000) */
-    bool gpio_enabled;             /**< Hardware mode vs mock mode */
-    const char *camera_url;        /**< Camera stream URL path */
+    uint32_t movement_timeout_ms; /**< Max movement duration (default: 5000) */
+    uint32_t turret_timeout_ms;   /**< Max turret duration (default: 2000) */
+    bool gpio_enabled;            /**< Hardware mode vs mock mode */
+    const char *camera_url;       /**< Camera stream URL path */
 } robot_config_t;
 
 /**
  * @brief Robot action result
  */
 typedef struct {
-    robot_action_t action;         /**< Action that was performed */
-    uint32_t duration_ms;          /**< Actual duration (0 = continuous) */
-    bool success;                  /**< Whether action succeeded */
+    robot_action_t action; /**< Action that was performed */
+    uint32_t duration_ms;  /**< Actual duration (0 = continuous) */
+    bool success;          /**< Whether action succeeded */
 } robot_result_t;
 
 /**
  * @brief Robot status information
  */
 typedef struct {
-    bool connected;                /**< Controller is active */
-    bool gpio_enabled;             /**< Hardware mode active */
-    const char *camera_url;        /**< Camera stream URL */
+    bool connected;         /**< Controller is active */
+    bool gpio_enabled;      /**< Hardware mode active */
+    const char *camera_url; /**< Camera stream URL */
 } robot_status_t;
 
 /**

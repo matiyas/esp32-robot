@@ -4,11 +4,14 @@
  */
 
 #include "safety_handler.h"
-#include "motor_control.h"
+
 #include <esp_log.h>
 #include <esp_timer.h>
+
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+
+#include "motor_control.h"
 
 static const char *TAG = "safety_handler";
 
@@ -24,8 +27,7 @@ static struct {
 /**
  * @brief Auto-stop timer callback
  */
-static void auto_stop_callback(void *arg)
-{
+static void auto_stop_callback(void *arg) {
     (void)arg;
     ESP_LOGW(TAG, "Auto-stop triggered");
     motor_stop_all();
@@ -34,8 +36,7 @@ static void auto_stop_callback(void *arg)
 /**
  * @brief Watchdog timer callback
  */
-static void watchdog_callback(void *arg)
-{
+static void watchdog_callback(void *arg) {
     (void)arg;
 
     if (!s_safety.watchdog_fed) {
@@ -46,8 +47,7 @@ static void watchdog_callback(void *arg)
     s_safety.watchdog_fed = false;
 }
 
-esp_err_t safety_handler_init(const safety_config_t *config)
-{
+esp_err_t safety_handler_init(const safety_config_t *config) {
     if (config == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -55,12 +55,10 @@ esp_err_t safety_handler_init(const safety_config_t *config)
     s_safety.config = *config;
 
     /* Create auto-stop timer (one-shot) */
-    esp_timer_create_args_t auto_stop_args = {
-        .callback = auto_stop_callback,
-        .arg = NULL,
-        .dispatch_method = ESP_TIMER_TASK,
-        .name = "auto_stop"
-    };
+    esp_timer_create_args_t auto_stop_args = {.callback = auto_stop_callback,
+                                              .arg = NULL,
+                                              .dispatch_method = ESP_TIMER_TASK,
+                                              .name = "auto_stop"};
 
     esp_err_t ret = esp_timer_create(&auto_stop_args, &s_safety.auto_stop_timer);
     if (ret != ESP_OK) {
@@ -70,12 +68,10 @@ esp_err_t safety_handler_init(const safety_config_t *config)
 
     /* Create watchdog timer (periodic) */
     if (config->watchdog_timeout_ms > 0) {
-        esp_timer_create_args_t watchdog_args = {
-            .callback = watchdog_callback,
-            .arg = NULL,
-            .dispatch_method = ESP_TIMER_TASK,
-            .name = "watchdog"
-        };
+        esp_timer_create_args_t watchdog_args = {.callback = watchdog_callback,
+                                                 .arg = NULL,
+                                                 .dispatch_method = ESP_TIMER_TASK,
+                                                 .name = "watchdog"};
 
         ret = esp_timer_create(&watchdog_args, &s_safety.watchdog_timer);
         if (ret != ESP_OK) {
@@ -85,10 +81,7 @@ esp_err_t safety_handler_init(const safety_config_t *config)
         }
 
         /* Start watchdog timer */
-        ret = esp_timer_start_periodic(
-            s_safety.watchdog_timer,
-            config->watchdog_timeout_ms * 1000
-        );
+        ret = esp_timer_start_periodic(s_safety.watchdog_timer, config->watchdog_timeout_ms * 1000);
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "Failed to start watchdog timer");
             esp_timer_delete(s_safety.auto_stop_timer);
@@ -101,14 +94,12 @@ esp_err_t safety_handler_init(const safety_config_t *config)
 
     s_safety.initialized = true;
 
-    ESP_LOGI(TAG, "Safety handler initialized (watchdog=%lu ms)",
-             config->watchdog_timeout_ms);
+    ESP_LOGI(TAG, "Safety handler initialized (watchdog=%lu ms)", config->watchdog_timeout_ms);
 
     return ESP_OK;
 }
 
-void safety_emergency_shutdown(void)
-{
+void safety_emergency_shutdown(void) {
     ESP_LOGE(TAG, "EMERGENCY SHUTDOWN");
 
     /* Stop all motors immediately */
@@ -118,13 +109,11 @@ void safety_emergency_shutdown(void)
     safety_cancel_auto_stop();
 }
 
-void safety_feed_watchdog(void)
-{
+void safety_feed_watchdog(void) {
     s_safety.watchdog_fed = true;
 }
 
-uint32_t safety_validate_duration(uint32_t duration_ms, uint32_t max_duration_ms)
-{
+uint32_t safety_validate_duration(uint32_t duration_ms, uint32_t max_duration_ms) {
     if (duration_ms == 0) {
         return 0;
     }
@@ -136,8 +125,7 @@ uint32_t safety_validate_duration(uint32_t duration_ms, uint32_t max_duration_ms
     return duration_ms;
 }
 
-esp_err_t safety_schedule_auto_stop(uint32_t duration_ms)
-{
+esp_err_t safety_schedule_auto_stop(uint32_t duration_ms) {
     if (!s_safety.initialized) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -150,10 +138,7 @@ esp_err_t safety_schedule_auto_stop(uint32_t duration_ms)
     safety_cancel_auto_stop();
 
     /* Schedule new auto-stop */
-    esp_err_t ret = esp_timer_start_once(
-        s_safety.auto_stop_timer,
-        duration_ms * 1000
-    );
+    esp_err_t ret = esp_timer_start_once(s_safety.auto_stop_timer, duration_ms * 1000);
 
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to schedule auto-stop");
@@ -165,8 +150,7 @@ esp_err_t safety_schedule_auto_stop(uint32_t duration_ms)
     return ESP_OK;
 }
 
-void safety_cancel_auto_stop(void)
-{
+void safety_cancel_auto_stop(void) {
     if (!s_safety.initialized) {
         return;
     }
@@ -175,8 +159,7 @@ void safety_cancel_auto_stop(void)
     ESP_LOGD(TAG, "Auto-stop cancelled");
 }
 
-void safety_handler_cleanup(void)
-{
+void safety_handler_cleanup(void) {
     if (!s_safety.initialized) {
         return;
     }

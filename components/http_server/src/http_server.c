@@ -4,13 +4,14 @@
  */
 
 #include "http_server.h"
-#include "api_handlers.h"
+
 #include <esp_log.h>
+
+#include "api_handlers.h"
 
 static const char *TAG = "http_server";
 
-httpd_handle_t http_server_start(const http_server_config_t *config)
-{
+httpd_handle_t http_server_start(const http_server_config_t *config) {
     if (config == NULL) {
         ESP_LOGE(TAG, "Invalid config");
         return NULL;
@@ -44,8 +45,7 @@ httpd_handle_t http_server_start(const http_server_config_t *config)
     return server;
 }
 
-esp_err_t http_server_stop(httpd_handle_t server)
-{
+esp_err_t http_server_stop(httpd_handle_t server) {
     if (server == NULL) {
         return ESP_ERR_INVALID_ARG;
     }

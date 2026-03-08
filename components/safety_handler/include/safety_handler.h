@@ -7,6 +7,7 @@
 #define SAFETY_HANDLER_H
 
 #include <esp_err.h>
+
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -17,9 +18,9 @@ extern "C" {
  * @brief Safety handler configuration
  */
 typedef struct {
-    uint32_t watchdog_timeout_ms;   /**< Watchdog timeout (default: 10000) */
-    uint32_t movement_timeout_ms;   /**< Max movement duration */
-    uint32_t turret_timeout_ms;     /**< Max turret duration */
+    uint32_t watchdog_timeout_ms; /**< Watchdog timeout (default: 10000) */
+    uint32_t movement_timeout_ms; /**< Max movement duration */
+    uint32_t turret_timeout_ms;   /**< Max turret duration */
 } safety_config_t;
 
 /**
