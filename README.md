@@ -179,9 +179,55 @@ python -m esptool --chip esp32 -p /dev/ttyUSB0 -b 460800 \
 
 1. Disconnect GPIO 0 from GND
 2. Press RESET button or power cycle the board
-3. Connect to the configured WiFi network
+3. ESP32 will connect to the configured WiFi network
 4. Find ESP32's IP address in serial monitor or router
 5. Open `http://<ESP32_IP>/` in a browser
+
+## WiFi Access Point Setup
+
+The ESP32 operates in **station mode** and connects to an existing WiFi network. You need to provide a 2.4GHz WiFi access point.
+
+### Default Credentials
+
+| Setting | Value |
+|---------|-------|
+| SSID | `ESP32` |
+| Password | `eEspetrzyjsci2a` |
+
+### Setting Up the Access Point
+
+**Option 1: Mobile Hotspot**
+1. On your phone, go to Settings → Hotspot/Tethering
+2. Set network name to `ESP32`
+3. Set password to `eEspetrzyjsci2a`
+4. Enable 2.4GHz band (disable 5GHz if possible)
+5. Turn on the hotspot
+
+**Option 2: Router**
+1. Access router admin panel (usually `192.168.1.1`)
+2. Create a 2.4GHz network with SSID `ESP32`
+3. Set WPA2 password to `eEspetrzyjsci2a`
+
+**Option 3: Custom Credentials**
+
+To use different WiFi credentials, edit `sdkconfig.defaults`:
+
+```
+CONFIG_ROBOT_WIFI_SSID="YourNetworkName"
+CONFIG_ROBOT_WIFI_PASSWORD="YourPassword"
+```
+
+Then rebuild: `rm sdkconfig && idf.py build`
+
+### Verifying Connection
+
+After boot, the serial monitor will show:
+```
+I (xxxx) wifi_manager: Connecting to AP: ESP32
+I (xxxx) wifi_manager: Connected! IP: 192.168.x.x
+```
+
+Use this IP address to access the web UI.
 
 ## Configuration
 
