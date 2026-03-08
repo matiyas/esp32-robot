@@ -207,13 +207,17 @@ void app_main(void)
     /* Initialize SPIFFS for web UI */
     ESP_ERROR_CHECK(init_spiffs());
 
-    /* Initialize WiFi */
-    ESP_ERROR_CHECK(wifi_manager_init());
-    ESP_ERROR_CHECK(wifi_manager_connect(APP_WIFI_SSID, APP_WIFI_PASSWORD));
+    /* Initialize WiFi (skip in mock mode for simulation) */
+    if (!APP_MOCK_MODE) {
+        ESP_ERROR_CHECK(wifi_manager_init());
+        ESP_ERROR_CHECK(wifi_manager_connect(APP_WIFI_SSID, APP_WIFI_PASSWORD));
 
-    /* Wait for WiFi connection */
-    wifi_manager_wait_connected(portMAX_DELAY);
-    ESP_LOGI(TAG, "WiFi connected");
+        /* Wait for WiFi connection */
+        wifi_manager_wait_connected(portMAX_DELAY);
+        ESP_LOGI(TAG, "WiFi connected");
+    } else {
+        ESP_LOGI(TAG, "WiFi initialization skipped (mock mode)");
+    }
 
     /* Initialize hardware subsystems */
     if (!APP_MOCK_MODE) {
