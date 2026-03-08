@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "author": "ESP32 Robot",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-s3-devkitc-1",
+      "id": "esp",
+      "top": 0,
+      "left": 0,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-servo",
+      "id": "servo1",
+      "top": 150,
+      "left": 250,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led1",
+      "top": 50,
+      "left": 250,
+      "attrs": { "color": "green", "label": "Motor L FWD" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led2",
+      "top": 80,
+      "left": 250,
+      "attrs": { "color": "red", "label": "Motor L BWD" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led3",
+      "top": 50,
+      "left": 320,
+      "attrs": { "color": "green", "label": "Motor R FWD" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led4",
+      "top": 80,
+      "left": 320,
+      "attrs": { "color": "red", "label": "Motor R BWD" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led5",
+      "top": 110,
+      "left": 285,
+      "attrs": { "color": "yellow", "label": "PWM Enable" }
+    }
+  ],
+  "connections": [
+    ["esp:12", "led1:A", "green", ["h10"]],
+    ["led1:C", "esp:GND.1", "black", ["v10"]],
+    ["esp:13", "led2:A", "red", ["h10"]],
+    ["led2:C", "esp:GND.1", "black", ["v10"]],
+    ["esp:14", "led3:A", "green", ["h10"]],
+    ["led3:C", "esp:GND.1", "black", ["v10"]],
+    ["esp:15", "led4:A", "red", ["h10"]],
+    ["led4:C", "esp:GND.1", "black", ["v10"]],
+    ["esp:2", "led5:A", "yellow", ["h10"]],
+    ["led5:C", "esp:GND.1", "black", ["v10"]],
+    ["esp:4", "servo1:PWM", "orange", ["h10"]],
+    ["esp:5V", "servo1:V+", "red", ["h10"]],
+    ["esp:GND.1", "servo1:GND", "black", ["h10"]]
+  ]
+}
