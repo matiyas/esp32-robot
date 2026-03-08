@@ -2,23 +2,24 @@ menu "Robot Controller Configuration"
 
     menu "WiFi Settings"
         config ROBOT_WIFI_SSID
-            string "WiFi SSID"
-            default "RobotNetwork"
+            string "Access Point SSID"
+            default "ESP32-Robot"
             help
-                WiFi network name to connect to.
+                WiFi Access Point network name (broadcasted by ESP32).
 
         config ROBOT_WIFI_PASSWORD
-            string "WiFi Password"
+            string "Access Point Password"
             default ""
             help
-                WiFi network password. Leave empty for open networks.
+                WiFi Access Point password. Minimum 8 characters for WPA2.
+                Leave empty for open network.
 
-        config ROBOT_WIFI_MAX_RETRY
-            int "Maximum WiFi connection retries"
-            default 5
-            range 1 20
+        config ROBOT_WIFI_MAX_CONNECTIONS
+            int "Maximum client connections"
+            default 4
+            range 1 10
             help
-                Maximum number of WiFi connection attempts before giving up.
+                Maximum number of clients that can connect to the AP.
     endmenu
 
     menu "Motor Control"

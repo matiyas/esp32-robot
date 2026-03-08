@@ -177,14 +177,11 @@ void app_main(void) {
     /* Initialize SPIFFS for web UI */
     ESP_ERROR_CHECK(init_spiffs());
 
-    /* Initialize WiFi (skip in mock mode for simulation) */
+    /* Initialize WiFi AP (skip in mock mode for simulation) */
     if (!APP_MOCK_MODE) {
         ESP_ERROR_CHECK(wifi_manager_init());
-        ESP_ERROR_CHECK(wifi_manager_connect(APP_WIFI_SSID, APP_WIFI_PASSWORD));
-
-        /* Wait for WiFi connection */
-        wifi_manager_wait_connected(portMAX_DELAY);
-        ESP_LOGI(TAG, "WiFi connected");
+        ESP_ERROR_CHECK(wifi_manager_start_ap(APP_WIFI_SSID, APP_WIFI_PASSWORD));
+        ESP_LOGI(TAG, "WiFi AP started");
     } else {
         ESP_LOGI(TAG, "WiFi initialization skipped (mock mode)");
     }
@@ -208,7 +205,7 @@ void app_main(void) {
     ESP_ERROR_CHECK(start_server());
 
     ESP_LOGI(TAG, "Robot controller initialized successfully");
-    ESP_LOGI(TAG, "Web UI available at http://<ip>:%d/", APP_HTTP_PORT);
+    ESP_LOGI(TAG, "Web UI available at http://10.42.0.1:%d/", APP_HTTP_PORT);
 
     /* Main loop - feed watchdog */
     while (1) {

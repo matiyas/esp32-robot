@@ -1,6 +1,6 @@
 /**
  * @file wifi_manager.h
- * @brief WiFi connection management
+ * @brief WiFi Access Point management
  */
 
 #ifndef WIFI_MANAGER_H
@@ -18,47 +18,44 @@ extern "C" {
 /**
  * @brief Initialize WiFi subsystem
  *
- * Must be called before connect.
+ * Must be called before starting AP.
  *
  * @return ESP_OK on success
  */
 esp_err_t wifi_manager_init(void);
 
 /**
- * @brief Connect to WiFi network
+ * @brief Start WiFi Access Point
  *
- * @param ssid Network SSID
- * @param password Network password (empty for open networks)
- * @return ESP_OK on connection start
+ * @param ssid AP network name
+ * @param password AP password (min 8 chars, empty for open network)
+ * @return ESP_OK on success
  */
-esp_err_t wifi_manager_connect(const char *ssid, const char *password);
+esp_err_t wifi_manager_start_ap(const char *ssid, const char *password);
 
 /**
- * @brief Disconnect from WiFi network
+ * @brief Stop WiFi Access Point
  *
  * @return ESP_OK on success
  */
-esp_err_t wifi_manager_disconnect(void);
+esp_err_t wifi_manager_stop_ap(void);
 
 /**
- * @brief Wait for WiFi connection
+ * @brief Check if AP is active
  *
- * Blocks until connected or timeout.
- *
- * @param timeout_ms Timeout in milliseconds (portMAX_DELAY for infinite)
- * @return true if connected, false on timeout
+ * @return true if AP is running
  */
-bool wifi_manager_wait_connected(uint32_t timeout_ms);
+bool wifi_manager_is_active(void);
 
 /**
- * @brief Check if WiFi is connected
+ * @brief Get number of connected stations
  *
- * @return true if connected
+ * @return Number of connected clients
  */
-bool wifi_manager_is_connected(void);
+uint8_t wifi_manager_get_station_count(void);
 
 /**
- * @brief Get current IP address as string
+ * @brief Get AP IP address as string
  *
  * @param buffer Buffer to store IP string
  * @param buffer_size Size of buffer

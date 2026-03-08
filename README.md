@@ -183,51 +183,46 @@ python -m esptool --chip esp32 -p /dev/ttyUSB0 -b 460800 \
 4. Find ESP32's IP address in serial monitor or router
 5. Open `http://<ESP32_IP>/` in a browser
 
-## WiFi Access Point Setup
+## WiFi Access Point
 
-The ESP32 operates in **station mode** and connects to an existing WiFi network. You need to provide a 2.4GHz WiFi access point.
+The ESP32 creates its own WiFi Access Point. Connect your phone/laptop directly to the robot's network.
 
-### Default Credentials
+### Default Settings
 
 | Setting | Value |
 |---------|-------|
 | SSID | `ESP32` |
 | Password | `eEspetrzyjsci2a` |
+| IP Address | `10.42.0.1` |
+| HTTP Port | `4567` |
 
-### Setting Up the Access Point
+### Connecting to the Robot
 
-**Option 1: Mobile Hotspot**
-1. On your phone, go to Settings → Hotspot/Tethering
-2. Set network name to `ESP32`
-3. Set password to `eEspetrzyjsci2a`
-4. Enable 2.4GHz band (disable 5GHz if possible)
-5. Turn on the hotspot
+1. Power on the ESP32-CAM
+2. On your phone/laptop, scan for WiFi networks
+3. Connect to `ESP32` with password `eEspetrzyjsci2a`
+4. Open `http://10.42.0.1:4567/` in a browser
 
-**Option 2: Router**
-1. Access router admin panel (usually `192.168.1.1`)
-2. Create a 2.4GHz network with SSID `ESP32`
-3. Set WPA2 password to `eEspetrzyjsci2a`
+### Custom Credentials
 
-**Option 3: Custom Credentials**
-
-To use different WiFi credentials, edit `sdkconfig.defaults`:
+To change the AP credentials, edit `sdkconfig.defaults`:
 
 ```
-CONFIG_ROBOT_WIFI_SSID="YourNetworkName"
-CONFIG_ROBOT_WIFI_PASSWORD="YourPassword"
+CONFIG_ROBOT_WIFI_SSID="MyRobot"
+CONFIG_ROBOT_WIFI_PASSWORD="MyPassword123"
 ```
 
 Then rebuild: `rm sdkconfig && idf.py build`
 
-### Verifying Connection
+**Note:** Password must be at least 8 characters for WPA2. Leave empty for open network.
+
+### Verifying AP Startup
 
 After boot, the serial monitor will show:
 ```
-I (xxxx) wifi_manager: Connecting to AP: ESP32
-I (xxxx) wifi_manager: Connected! IP: 192.168.x.x
+I (xxxx) wifi_manager: AP started - SSID: ESP32, Password: ***
+I (xxxx) wifi_manager: Connect to WiFi and open http://10.42.0.1:4567/
 ```
-
-Use this IP address to access the web UI.
 
 ## Configuration
 

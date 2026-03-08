@@ -1,12 +1,13 @@
 /**
  * @file wifi_manager.c
- * @brief WiFi connection management implementation
+ * @brief WiFi Access Point management implementation
  */
 
 #include "wifi_manager.h"
 
 #include <esp_event.h>
 #include <esp_log.h>
+#include <esp_netif.h>
 #include <esp_wifi.h>
 
 #include <freertos/FreeRTOS.h>
@@ -16,17 +17,18 @@
 
 static const char *TAG = "wifi_manager";
 
+/* AP network configuration */
+#define AP_IP_ADDR "10.42.0.1"
+#define AP_GATEWAY "10.42.0.1"
+#define AP_NETMASK "255.255.255.0"
+
 /* WiFi state */
 static struct {
     bool initialized;
-    EventGroupHandle_t event_group;
+    bool active;
     esp_netif_t *netif;
-    char ip_address[16];
+    uint8_t station_count;
 } s_wifi = {0};
-
-/* Event group bits */
-#define WIFI_CONNECTED_BIT BIT0
-#define WIFI_FAIL_BIT      BIT1
 
 /**
  * @brief WiFi event handler
@@ -37,26 +39,31 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
 
     if (event_base == WIFI_EVENT) {
         switch (event_id) {
-            case WIFI_EVENT_STA_START:
-                esp_wifi_connect();
+            case WIFI_EVENT_AP_START:
+                s_wifi.active = true;
+                ESP_LOGI(TAG, "AP started");
                 break;
 
-            case WIFI_EVENT_STA_DISCONNECTED:
-                ESP_LOGW(TAG, "Disconnected, reconnecting...");
-                xEventGroupClearBits(s_wifi.event_group, WIFI_CONNECTED_BIT);
-                esp_wifi_connect();
+            case WIFI_EVENT_AP_STOP:
+                s_wifi.active = false;
+                s_wifi.station_count = 0;
+                ESP_LOGI(TAG, "AP stopped");
+                break;
+
+            case WIFI_EVENT_AP_STACONNECTED:
+                s_wifi.station_count++;
+                ESP_LOGI(TAG, "Station connected (total: %d)", s_wifi.station_count);
+                break;
+
+            case WIFI_EVENT_AP_STADISCONNECTED:
+                if (s_wifi.station_count > 0) {
+                    s_wifi.station_count--;
+                }
+                ESP_LOGI(TAG, "Station disconnected (total: %d)", s_wifi.station_count);
                 break;
 
             default:
                 break;
-        }
-    } else if (event_base == IP_EVENT) {
-        if (event_id == IP_EVENT_STA_GOT_IP) {
-            ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
-            snprintf(s_wifi.ip_address, sizeof(s_wifi.ip_address), IPSTR,
-                     IP2STR(&event->ip_info.ip));
-            ESP_LOGI(TAG, "Got IP: %s", s_wifi.ip_address);
-            xEventGroupSetBits(s_wifi.event_group, WIFI_CONNECTED_BIT);
         }
     }
 }
@@ -64,13 +71,6 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
 esp_err_t wifi_manager_init(void) {
     if (s_wifi.initialized) {
         return ESP_OK;
-    }
-
-    /* Create event group */
-    s_wifi.event_group = xEventGroupCreate();
-    if (s_wifi.event_group == NULL) {
-        ESP_LOGE(TAG, "Failed to create event group");
-        return ESP_ERR_NO_MEM;
     }
 
     /* Initialize network interface */
@@ -86,11 +86,27 @@ esp_err_t wifi_manager_init(void) {
         return ret;
     }
 
-    s_wifi.netif = esp_netif_create_default_wifi_sta();
+    s_wifi.netif = esp_netif_create_default_wifi_ap();
     if (s_wifi.netif == NULL) {
         ESP_LOGE(TAG, "netif create failed");
         return ESP_FAIL;
     }
+
+    /* Configure custom IP address */
+    esp_netif_dhcps_stop(s_wifi.netif);
+
+    esp_netif_ip_info_t ip_info = {0};
+    ip_info.ip.addr = esp_ip4addr_aton(AP_IP_ADDR);
+    ip_info.gw.addr = esp_ip4addr_aton(AP_GATEWAY);
+    ip_info.netmask.addr = esp_ip4addr_aton(AP_NETMASK);
+
+    ret = esp_netif_set_ip_info(s_wifi.netif, &ip_info);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to set IP info");
+        return ret;
+    }
+
+    esp_netif_dhcps_start(s_wifi.netif);
 
     /* Initialize WiFi */
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
@@ -100,18 +116,11 @@ esp_err_t wifi_manager_init(void) {
         return ret;
     }
 
-    /* Register event handlers */
+    /* Register event handler */
     ret = esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler,
                                               NULL, NULL);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to register WiFi event handler");
-        return ret;
-    }
-
-    ret = esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler,
-                                              NULL, NULL);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to register IP event handler");
         return ret;
     }
 
@@ -121,7 +130,7 @@ esp_err_t wifi_manager_init(void) {
     return ESP_OK;
 }
 
-esp_err_t wifi_manager_connect(const char *ssid, const char *password) {
+esp_err_t wifi_manager_start_ap(const char *ssid, const char *password) {
     if (!s_wifi.initialized) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -130,23 +139,31 @@ esp_err_t wifi_manager_connect(const char *ssid, const char *password) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    wifi_config_t wifi_config = {0};
-    strncpy((char *)wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid) - 1);
+    wifi_config_t wifi_config = {
+        .ap =
+            {
+                .max_connection = 4,
+                .authmode = WIFI_AUTH_OPEN,
+            },
+    };
 
-    if (password != NULL) {
-        strncpy((char *)wifi_config.sta.password, password, sizeof(wifi_config.sta.password) - 1);
+    strncpy((char *)wifi_config.ap.ssid, ssid, sizeof(wifi_config.ap.ssid) - 1);
+    wifi_config.ap.ssid_len = strlen(ssid);
+
+    if (password != NULL && strlen(password) >= 8) {
+        strncpy((char *)wifi_config.ap.password, password, sizeof(wifi_config.ap.password) - 1);
+        wifi_config.ap.authmode = WIFI_AUTH_WPA2_PSK;
+    } else if (password != NULL && strlen(password) > 0) {
+        ESP_LOGW(TAG, "Password too short (min 8 chars), creating open network");
     }
 
-    wifi_config.sta.threshold.authmode =
-        (password && strlen(password) > 0) ? WIFI_AUTH_WPA2_PSK : WIFI_AUTH_OPEN;
-
-    esp_err_t ret = esp_wifi_set_mode(WIFI_MODE_STA);
+    esp_err_t ret = esp_wifi_set_mode(WIFI_MODE_AP);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to set WiFi mode");
         return ret;
     }
 
-    ret = esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
+    ret = esp_wifi_set_config(WIFI_IF_AP, &wifi_config);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to set WiFi config");
         return ret;
@@ -158,42 +175,32 @@ esp_err_t wifi_manager_connect(const char *ssid, const char *password) {
         return ret;
     }
 
-    ESP_LOGI(TAG, "Connecting to %s...", ssid);
+    ESP_LOGI(TAG, "AP started - SSID: %s, Password: %s, IP: %s", ssid,
+             (wifi_config.ap.authmode == WIFI_AUTH_OPEN) ? "(open)" : "***", AP_IP_ADDR);
 
     return ESP_OK;
 }
 
-esp_err_t wifi_manager_disconnect(void) {
+esp_err_t wifi_manager_stop_ap(void) {
     if (!s_wifi.initialized) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    esp_wifi_disconnect();
-    xEventGroupClearBits(s_wifi.event_group, WIFI_CONNECTED_BIT);
+    esp_err_t ret = esp_wifi_stop();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to stop WiFi");
+        return ret;
+    }
 
     return ESP_OK;
 }
 
-bool wifi_manager_wait_connected(uint32_t timeout_ms) {
-    if (!s_wifi.initialized) {
-        return false;
-    }
-
-    TickType_t ticks = (timeout_ms == UINT32_MAX) ? portMAX_DELAY : pdMS_TO_TICKS(timeout_ms);
-
-    EventBits_t bits = xEventGroupWaitBits(s_wifi.event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
-                                           pdFALSE, pdFALSE, ticks);
-
-    return (bits & WIFI_CONNECTED_BIT) != 0;
+bool wifi_manager_is_active(void) {
+    return s_wifi.active;
 }
 
-bool wifi_manager_is_connected(void) {
-    if (!s_wifi.initialized) {
-        return false;
-    }
-
-    EventBits_t bits = xEventGroupGetBits(s_wifi.event_group);
-    return (bits & WIFI_CONNECTED_BIT) != 0;
+uint8_t wifi_manager_get_station_count(void) {
+    return s_wifi.station_count;
 }
 
 esp_err_t wifi_manager_get_ip(char *buffer, size_t buffer_size) {
@@ -201,11 +208,11 @@ esp_err_t wifi_manager_get_ip(char *buffer, size_t buffer_size) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    if (!wifi_manager_is_connected()) {
+    if (!s_wifi.active) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    strncpy(buffer, s_wifi.ip_address, buffer_size - 1);
+    strncpy(buffer, AP_IP_ADDR, buffer_size - 1);
     buffer[buffer_size - 1] = '\0';
 
     return ESP_OK;
