@@ -1,0 +1,30 @@
+# Build
+build/
+sdkconfig
+sdkconfig.old
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node.js
+node_modules/
+package-lock.json
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# ESP-IDF
+managed_components/
+dependencies.lock
+
+# macOS
+.DS_Store
+
+# Coverage
+coverage/

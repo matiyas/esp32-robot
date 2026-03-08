@@ -1,0 +1,25 @@
+# cppcheck configuration for ESP32 robot project
+
+# Enable all checks except overly verbose ones
+enable=warning,style,performance,portability
+
+# Suppress missing include warnings (ESP-IDF headers)
+suppress=missingInclude
+suppress=missingIncludeSystem
+
+# Define ESP32-specific macros
+-DESP_PLATFORM
+-DCONFIG_IDF_TARGET_ESP32S3
+
+# Set C standard
+std=c17
+
+# Check header files too
+check-level=exhaustive
+
+# Inline suppressions
+inline-suppr
+
+# Ignore external directories
+-i managed_components
+-i build

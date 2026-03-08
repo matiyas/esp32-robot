@@ -1,0 +1,10 @@
+idf_component_register(
+    SRCS
+        "src/robot.c"
+    INCLUDE_DIRS
+        "include"
+    REQUIRES
+        motor_control
+        servo_control
+        safety_handler
+)

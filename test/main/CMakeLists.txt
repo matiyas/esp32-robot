@@ -1,0 +1,17 @@
+idf_component_register(
+    SRCS
+        "test_main.c"
+        "test_robot.c"
+        "test_motor_control.c"
+        "test_servo_control.c"
+        "test_safety_handler.c"
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        unity
+        robot_core
+        motor_control
+        servo_control
+        safety_handler
+        hal
+)

@@ -1,0 +1,14 @@
+idf_component_register(
+    SRCS
+        "src/http_server.c"
+        "src/api_handlers.c"
+        "src/api_helpers.c"
+    INCLUDE_DIRS
+        "include"
+    REQUIRES
+        esp_http_server
+        robot_core
+        camera_stream
+        spiffs
+        json
+)

@@ -1,0 +1,10 @@
+idf_component_register(
+    SRCS
+        "src/safety_handler.c"
+    INCLUDE_DIRS
+        "include"
+    REQUIRES
+        freertos
+        esp_timer
+        motor_control
+)
