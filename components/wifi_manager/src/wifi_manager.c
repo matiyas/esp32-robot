@@ -65,6 +65,9 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
             default:
                 break;
         }
+    } else if (event_base == IP_EVENT && event_id == IP_EVENT_AP_STAIPASSIGNED) {
+        ip_event_ap_staipassigned_t *event = (ip_event_ap_staipassigned_t *)event_data;
+        ESP_LOGI(TAG, "Station assigned IP: " IPSTR, IP2STR(&event->ip));
     }
 }
 
@@ -116,11 +119,18 @@ esp_err_t wifi_manager_init(void) {
         return ret;
     }
 
-    /* Register event handler */
+    /* Register event handlers */
     ret = esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler,
                                               NULL, NULL);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to register WiFi event handler");
+        return ret;
+    }
+
+    ret = esp_event_handler_instance_register(IP_EVENT, IP_EVENT_AP_STAIPASSIGNED,
+                                              &wifi_event_handler, NULL, NULL);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to register IP event handler");
         return ret;
     }
 
