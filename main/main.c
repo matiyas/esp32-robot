@@ -154,10 +154,10 @@ static esp_err_t start_server(void) {
         return ESP_FAIL;
     }
 
-    /* Register camera stream handler */
-    esp_err_t ret = camera_stream_register_handler(server);
+    /* Start separate camera stream server on different port */
+    esp_err_t ret = camera_stream_start_server(APP_HTTP_PORT + 1);
     if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "Camera stream handler registration failed");
+        ESP_LOGW(TAG, "Camera stream server failed to start");
     }
 
     ESP_LOGI(TAG, "HTTP server started on port %d", APP_HTTP_PORT);
@@ -190,7 +190,9 @@ void app_main(void) {
     if (!APP_MOCK_MODE) {
         ESP_ERROR_CHECK(init_motors());
         ESP_ERROR_CHECK(init_servo());
-        ESP_ERROR_CHECK(init_camera());
+        if (init_camera() != ESP_OK) {
+            ESP_LOGW(TAG, "Camera init failed - continuing without camera");
+        }
     } else {
         ESP_LOGI(TAG, "Hardware initialization skipped (mock mode)");
     }

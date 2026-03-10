@@ -7,6 +7,8 @@
 
 #include <esp_log.h>
 
+#include <driver/gpio.h>
+
 #include <string.h>
 
 #include "hal_gpio.h"
@@ -21,6 +23,17 @@ static struct {
     motor_control_config_t config;
     hal_pwm_channel_t pwm_channel;
 } s_motor = {0};
+
+/**
+ * @brief Log current GPIO states for debugging
+ */
+static void log_gpio_states(void) {
+    ESP_LOGI(TAG, "GPIO states: IN1_L(12)=%d IN2_L(13)=%d IN1_R(14)=%d IN2_R(15)=%d",
+             gpio_get_level(s_motor.config.left_motor.in1),
+             gpio_get_level(s_motor.config.left_motor.in2),
+             gpio_get_level(s_motor.config.right_motor.in1),
+             gpio_get_level(s_motor.config.right_motor.in2));
+}
 
 /**
  * @brief Set motor direction using DRV8833 truth table
@@ -106,10 +119,11 @@ esp_err_t motor_move_forward(uint32_t duration_ms) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    ESP_LOGD(TAG, "Moving forward (duration=%lu ms)", duration_ms);
+    ESP_LOGI(TAG, "Moving forward (duration=%lu ms)", duration_ms);
 
     set_motor_direction(&s_motor.config.left_motor, MOTOR_MODE_FORWARD);
     set_motor_direction(&s_motor.config.right_motor, MOTOR_MODE_FORWARD);
+    log_gpio_states();
     pwm_ramper_start();
 
     return ESP_OK;
@@ -120,10 +134,11 @@ esp_err_t motor_move_backward(uint32_t duration_ms) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    ESP_LOGD(TAG, "Moving backward (duration=%lu ms)", duration_ms);
+    ESP_LOGI(TAG, "Moving backward (duration=%lu ms)", duration_ms);
 
     set_motor_direction(&s_motor.config.left_motor, MOTOR_MODE_BACKWARD);
     set_motor_direction(&s_motor.config.right_motor, MOTOR_MODE_BACKWARD);
+    log_gpio_states();
     pwm_ramper_start();
 
     return ESP_OK;
@@ -134,11 +149,12 @@ esp_err_t motor_turn_left(uint32_t duration_ms) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    ESP_LOGD(TAG, "Turning left (duration=%lu ms)", duration_ms);
+    ESP_LOGI(TAG, "Turning left (duration=%lu ms)", duration_ms);
 
     /* Tank turn: left backward, right forward */
     set_motor_direction(&s_motor.config.left_motor, MOTOR_MODE_BACKWARD);
     set_motor_direction(&s_motor.config.right_motor, MOTOR_MODE_FORWARD);
+    log_gpio_states();
     pwm_ramper_start();
 
     return ESP_OK;
@@ -149,11 +165,12 @@ esp_err_t motor_turn_right(uint32_t duration_ms) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    ESP_LOGD(TAG, "Turning right (duration=%lu ms)", duration_ms);
+    ESP_LOGI(TAG, "Turning right (duration=%lu ms)", duration_ms);
 
     /* Tank turn: left forward, right backward */
     set_motor_direction(&s_motor.config.left_motor, MOTOR_MODE_FORWARD);
     set_motor_direction(&s_motor.config.right_motor, MOTOR_MODE_BACKWARD);
+    log_gpio_states();
     pwm_ramper_start();
 
     return ESP_OK;
@@ -164,7 +181,7 @@ esp_err_t motor_stop_all(void) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    ESP_LOGD(TAG, "Stopping all motors");
+    ESP_LOGI(TAG, "Stopping all motors");
 
     /* Stop PWM ramp */
     pwm_ramper_stop();
@@ -172,6 +189,7 @@ esp_err_t motor_stop_all(void) {
     /* Set both motors to coast mode */
     set_motor_direction(&s_motor.config.left_motor, MOTOR_MODE_COAST);
     set_motor_direction(&s_motor.config.right_motor, MOTOR_MODE_COAST);
+    log_gpio_states();
 
     return ESP_OK;
 }

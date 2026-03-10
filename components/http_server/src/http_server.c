@@ -22,6 +22,7 @@ httpd_handle_t http_server_start(const http_server_config_t *config) {
     httpd_config.max_uri_handlers = 20;
     httpd_config.max_resp_headers = 8;
     httpd_config.stack_size = 8192;
+    httpd_config.max_open_sockets = 4;
     httpd_config.lru_purge_enable = true;
 
     httpd_handle_t server = NULL;

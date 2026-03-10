@@ -203,7 +203,7 @@ esp_err_t api_handle_camera(httpd_req_t *req) {
     const char *path = camera_stream_get_path();
 
     char response[128];
-    snprintf(response, sizeof(response), "\"stream_url\":\"%s\"", path);
+    snprintf(response, sizeof(response), "\"stream_url\":\"http://10.42.0.1:4568%s\"", path);
 
     return api_send_success(req, response);
 }

@@ -41,6 +41,16 @@ esp_err_t camera_stream_init(const camera_stream_config_t *config);
 esp_err_t camera_stream_register_handler(httpd_handle_t server);
 
 /**
+ * @brief Start dedicated camera stream server
+ *
+ * Starts a separate HTTP server for camera streaming on the specified port.
+ *
+ * @param port HTTP port for the stream server
+ * @return ESP_OK on success
+ */
+esp_err_t camera_stream_start_server(uint16_t port);
+
+/**
  * @brief Get camera stream URL path
  *
  * @return Stream URL path (e.g., "/stream")

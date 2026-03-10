@@ -31,6 +31,8 @@ esp_err_t hal_gpio_set_level(gpio_num_t pin, uint8_t level) {
     esp_err_t ret = gpio_set_level(pin, level ? 1 : 0);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to set GPIO %d to %d: %s", pin, level, esp_err_to_name(ret));
+    } else {
+        ESP_LOGI(TAG, "GPIO %d set to %d", pin, level ? 1 : 0);
     }
     return ret;
 }

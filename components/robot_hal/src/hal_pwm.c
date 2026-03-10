@@ -15,6 +15,11 @@ static const char *TAG = "hal_pwm";
 #define LEDC_TIMER_RESOLUTION LEDC_TIMER_13_BIT
 #define LEDC_MAX_DUTY         ((1 << LEDC_TIMER_RESOLUTION) - 1)
 
+/* Offset to avoid conflict with camera XCLK (uses timer 0, channel 0) */
+#define LEDC_TIMER_OFFSET    2
+#define LEDC_CHANNEL_OFFSET  4
+#define GET_LEDC_CHANNEL(ch) ((ledc_channel_t)((ch) + LEDC_CHANNEL_OFFSET))
+
 /* Track allocated channels */
 static bool channel_used[HAL_PWM_MAX_CHANNELS] = {false};
 static uint32_t channel_freq[HAL_PWM_MAX_CHANNELS] = {0};
@@ -42,10 +47,12 @@ esp_err_t hal_pwm_init(gpio_num_t pin, uint32_t frequency_hz, hal_pwm_channel_t 
         return ESP_ERR_NO_MEM;
     }
 
-    /* Configure LEDC timer */
+    /* Configure LEDC timer - offset to avoid conflict with camera XCLK (timer 0, channel 0) */
+    ledc_timer_t timer_num = (ledc_timer_t)((ch / 2) + LEDC_TIMER_OFFSET);
+    ledc_channel_t channel_num = GET_LEDC_CHANNEL(ch);
+
     ledc_timer_config_t timer_conf = {.speed_mode = LEDC_LOW_SPEED_MODE,
-                                      .timer_num =
-                                          (ledc_timer_t)(ch / 2), /* 2 channels per timer */
+                                      .timer_num = timer_num,
                                       .duty_resolution = LEDC_TIMER_RESOLUTION,
                                       .freq_hz = frequency_hz,
                                       .clk_cfg = LEDC_AUTO_CLK};
@@ -58,8 +65,8 @@ esp_err_t hal_pwm_init(gpio_num_t pin, uint32_t frequency_hz, hal_pwm_channel_t 
 
     /* Configure LEDC channel */
     ledc_channel_config_t channel_conf = {.speed_mode = LEDC_LOW_SPEED_MODE,
-                                          .channel = (ledc_channel_t)ch,
-                                          .timer_sel = (ledc_timer_t)(ch / 2),
+                                          .channel = channel_num,
+                                          .timer_sel = timer_num,
                                           .intr_type = LEDC_INTR_DISABLE,
                                           .gpio_num = pin,
                                           .duty = 0,
@@ -91,9 +98,9 @@ esp_err_t hal_pwm_set_duty(hal_pwm_channel_t channel, uint8_t duty_percent) {
 
     uint32_t duty = (LEDC_MAX_DUTY * duty_percent) / HAL_PWM_DUTY_MAX;
 
-    esp_err_t ret = ledc_set_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)channel, duty);
+    esp_err_t ret = ledc_set_duty(LEDC_LOW_SPEED_MODE, GET_LEDC_CHANNEL(channel), duty);
     if (ret == ESP_OK) {
-        ret = ledc_update_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)channel);
+        ret = ledc_update_duty(LEDC_LOW_SPEED_MODE, GET_LEDC_CHANNEL(channel));
     }
 
     if (ret != ESP_OK) {
@@ -120,9 +127,9 @@ esp_err_t hal_pwm_set_servo_pulse(hal_pwm_channel_t channel, uint16_t pulse_us) 
         duty = LEDC_MAX_DUTY;
     }
 
-    esp_err_t ret = ledc_set_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)channel, duty);
+    esp_err_t ret = ledc_set_duty(LEDC_LOW_SPEED_MODE, GET_LEDC_CHANNEL(channel), duty);
     if (ret == ESP_OK) {
-        ret = ledc_update_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)channel);
+        ret = ledc_update_duty(LEDC_LOW_SPEED_MODE, GET_LEDC_CHANNEL(channel));
     }
 
     if (ret != ESP_OK) {
@@ -137,8 +144,8 @@ void hal_pwm_stop(hal_pwm_channel_t channel) {
         return;
     }
 
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)channel, 0);
-    ledc_update_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)channel);
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, GET_LEDC_CHANNEL(channel), 0);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, GET_LEDC_CHANNEL(channel));
     ESP_LOGD(TAG, "PWM channel %d stopped", channel);
 }
 
@@ -148,7 +155,7 @@ void hal_pwm_cleanup(hal_pwm_channel_t channel) {
     }
 
     hal_pwm_stop(channel);
-    ledc_stop(LEDC_LOW_SPEED_MODE, (ledc_channel_t)channel, 0);
+    ledc_stop(LEDC_LOW_SPEED_MODE, GET_LEDC_CHANNEL(channel), 0);
     channel_used[channel] = false;
     channel_freq[channel] = 0;
 

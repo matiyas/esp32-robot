@@ -52,6 +52,8 @@ static esp_err_t set_angle_internal(uint8_t angle) {
 
     if (ret == ESP_OK) {
         s_servo.current_angle = angle;
+        ESP_LOGI(TAG, "Servo GPIO %d: angle=%d° pulse=%uus", s_servo.config.signal_pin, angle,
+                 pulse);
     }
 
     return ret;

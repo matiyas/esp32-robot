@@ -8,6 +8,9 @@
 #include <esp_camera.h>
 #include <esp_log.h>
 
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+
 #include <string.h>
 
 static const char *TAG = "camera_stream";
@@ -80,6 +83,9 @@ static esp_err_t stream_handler(httpd_req_t *req) {
         if (res != ESP_OK) {
             break;
         }
+
+        /* Yield to allow other HTTP requests to be processed */
+        vTaskDelay(pdMS_TO_TICKS(20));
     }
 
     ESP_LOGI(TAG, "MJPEG stream ended");
@@ -119,7 +125,7 @@ esp_err_t camera_stream_init(const camera_stream_config_t *config) {
                                   .jpeg_quality = config->jpeg_quality,
                                   .fb_count = config->fb_count,
                                   .fb_location = CAMERA_FB_IN_PSRAM,
-                                  .grab_mode = CAMERA_GRAB_WHEN_EMPTY};
+                                  .grab_mode = CAMERA_GRAB_LATEST};
 
     esp_err_t ret = esp_camera_init(&cam_config);
     if (ret != ESP_OK) {
@@ -183,6 +189,39 @@ esp_err_t camera_stream_register_handler(httpd_handle_t server) {
 
 const char *camera_stream_get_path(void) {
     return STREAM_PATH;
+}
+
+static httpd_handle_t s_stream_server = NULL;
+
+esp_err_t camera_stream_start_server(uint16_t port) {
+    if (!s_camera.initialized) {
+        ESP_LOGE(TAG, "Camera not initialized");
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    config.server_port = port;
+    config.ctrl_port = port + 1;
+    config.max_uri_handlers = 2;
+    config.max_open_sockets = 2;
+    config.stack_size = 8192;
+
+    esp_err_t ret = httpd_start(&s_stream_server, &config);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start stream server: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    ret = camera_stream_register_handler(s_stream_server);
+    if (ret != ESP_OK) {
+        httpd_stop(s_stream_server);
+        s_stream_server = NULL;
+        return ret;
+    }
+
+    ESP_LOGI(TAG, "Camera stream server started on port %d", port);
+
+    return ESP_OK;
 }
 
 bool camera_stream_is_ready(void) {

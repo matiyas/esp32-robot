@@ -185,6 +185,9 @@ esp_err_t wifi_manager_start_ap(const char *ssid, const char *password) {
         return ret;
     }
 
+    /* Disable WiFi power saving for consistent streaming performance */
+    esp_wifi_set_ps(WIFI_PS_NONE);
+
     ESP_LOGI(TAG, "AP started - SSID: %s, Password: %s, IP: %s", ssid,
              (wifi_config.ap.authmode == WIFI_AUTH_OPEN) ? "(open)" : "***", AP_IP_ADDR);
 
