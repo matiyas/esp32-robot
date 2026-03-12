@@ -60,7 +60,7 @@ extern "C" {
 #define APP_CAMERA_JPEG_QUALITY CONFIG_ROBOT_CAMERA_JPEG_QUALITY
 #define APP_CAMERA_FB_COUNT     CONFIG_ROBOT_CAMERA_FB_COUNT
 
-/* ESP32-S3-CAM Camera Pin Definitions */
+/* ESP32-CAM (AI-Thinker) Camera Pin Definitions */
 #define APP_CAM_PIN_PWDN  -1
 #define APP_CAM_PIN_RESET -1
 #define APP_CAM_PIN_XCLK  0

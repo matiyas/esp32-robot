@@ -7,8 +7,9 @@ A robot tank controller running on ESP32-CAM (AI-Thinker) with REST API, camera 
 - **Motor Control**: DRV8833 dual H-bridge driver with PWM soft-start ramp
 - **Servo Control**: SG90 micro servo for camera turret with smooth interpolation
 - **Camera Streaming**: MJPEG stream via built-in OV2640 camera
+- **LED Control**: Toggleable flash LED for illumination
 - **REST API**: Full API for robot control (OpenAPI documented)
-- **Web UI**: Mobile-friendly control interface
+- **Web UI**: Mobile-friendly terminal-style control dashboard
 - **Safety Features**: Watchdog timer, movement timeout, emergency stop
 
 ## Hardware Requirements
@@ -30,6 +31,7 @@ A robot tank controller running on ESP32-CAM (AI-Thinker) with REST API, camera 
 | Motor Right IN2 | 15 | SD card CMD (unused) |
 | Motors Enable (PWM) | 2 | SD card D0 (unused) |
 | Servo Signal | 16 | U2RXD |
+| Flash LED | 4 | Built-in flash LED |
 
 **Note**: SD card functionality is sacrificed to free GPIO pins for motor/servo control.
 
@@ -244,6 +246,7 @@ All settings are configurable via `idf.py menuconfig`:
 | POST | /api/v1/move | Move robot (direction, duration) |
 | POST | /api/v1/turret | Rotate turret (direction) |
 | POST | /api/v1/stop | Emergency stop |
+| POST | /api/v1/led | Toggle LED (state: true/false) |
 | GET | /api/v1/status | Get robot status |
 | GET | /api/v1/camera | Get camera stream URL |
 | GET | /health | Health check |
