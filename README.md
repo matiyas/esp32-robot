@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/matiyas/esp32-robot/actions/workflows/ci.yml/badge.svg)](https://github.com/matiyas/esp32-robot/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/matiyas/esp32-robot)](https://github.com/matiyas/esp32-robot/releases/latest)
-[![License](https://img.shields.io/github/license/matiyas/esp32-robot)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![ESP-IDF](https://img.shields.io/badge/ESP--IDF-v5.2-blue)](https://github.com/espressif/esp-idf)
 
 A robot tank controller running on ESP32-CAM (AI-Thinker) with REST API, camera streaming, and web UI.
