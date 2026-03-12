@@ -1,17 +1,18 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-capable" content="yes">
-  <title>Robot Tank Control</title>
-  <link rel="stylesheet" href="/style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="/style.css" />
 </head>
+
 <body>
   <div class="container">
     <header class="header">
-      <h1>Robot Tank Control</h1>
       <div class="status" id="status">
         <span class="status-indicator" id="statusIndicator"></span>
         <span id="statusText">Connecting...</span>
@@ -20,59 +21,48 @@
 
     <section class="camera-section">
       <div class="camera-wrapper">
-        <img id="cameraStream" src="" alt="Camera stream loading..." class="camera-stream">
-        <div class="camera-error" id="cameraError" style="display: none;">
-          Camera stream unavailable
+        <img id="cameraStream" src="" alt="Camera stream loading..." class="camera-stream" />
+        <div class="camera-error" id="cameraError" style="display: none">
+          Camera stream unavailable.
         </div>
       </div>
     </section>
 
     <section class="controls-section">
       <div class="movement-controls">
-        <h2>Movement</h2>
         <div class="dpad">
-          <button class="control-btn dpad-up" id="btnForward" data-action="forward">
-            <span class="arrow">&#9650;</span>
-          </button>
-          <div class="dpad-middle">
-            <button class="control-btn dpad-left" id="btnLeft" data-action="left">
-              <span class="arrow">&#9668;</span>
-            </button>
-            <div class="dpad-center"></div>
-            <button class="control-btn dpad-right" id="btnRight" data-action="right">
-              <span class="arrow">&#9658;</span>
-            </button>
-          </div>
-          <button class="control-btn dpad-down" id="btnBackward" data-action="backward">
-            <span class="arrow">&#9660;</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="turret-controls">
-        <h2>Turret</h2>
-        <div class="turret-buttons">
           <button class="control-btn turret-btn" id="btnTurretLeft" data-action="turret-left">
-            <span class="arrow">&#9668;</span> LEFT
+            <span class="arrow">◄</span>
+          </button>
+          <button class="control-btn dpad-up" id="btnForward" data-action="forward">
+            <span class="arrow">▲</span>
           </button>
           <button class="control-btn turret-btn" id="btnTurretRight" data-action="turret-right">
-            RIGHT <span class="arrow">&#9658;</span>
+            <span class="arrow">►</span>
           </button>
+
+          <button class="control-btn dpad-left" id="btnLeft" data-action="left">
+            <span class="arrow">◄</span>
+          </button>
+          <div></div>
+          <button class="control-btn dpad-right" id="btnRight" data-action="right">
+            <span class="arrow">►</span>
+          </button>
+          <div></div>
+          <button class="control-btn dpad-down" id="btnBackward" data-action="backward">
+            <span class="arrow">▼</span>
+          </button>
+          <div></div>
         </div>
       </div>
 
       <div class="emergency-controls">
-        <button class="emergency-stop" id="btnStop">
-          EMERGENCY STOP
-        </button>
+        <button class="emergency-stop" id="btnStop">STOP</button>
       </div>
     </section>
-
-    <footer class="footer">
-      <p>Robot Tank Control v1.0 - ESP32-S3-CAM</p>
-    </footer>
   </div>
   <script src="/api-client.js"></script>
   <script src="/robot-controller.js"></script>
 </body>
+
 </html>
