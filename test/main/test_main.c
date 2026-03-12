@@ -12,6 +12,8 @@ extern void test_robot_move_backward(void);
 extern void test_robot_turn_left(void);
 extern void test_robot_turn_right(void);
 extern void test_robot_stop(void);
+extern void test_robot_led_on(void);
+extern void test_robot_led_off(void);
 
 extern void test_motor_control_init(void);
 extern void test_motor_direction_forward(void);
@@ -47,6 +49,8 @@ void app_main(void)
     RUN_TEST(test_robot_turn_left);
     RUN_TEST(test_robot_turn_right);
     RUN_TEST(test_robot_stop);
+    RUN_TEST(test_robot_led_on);
+    RUN_TEST(test_robot_led_off);
 
     /* Motor control tests */
     RUN_TEST(test_motor_control_init);

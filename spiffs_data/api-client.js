@@ -16,6 +16,10 @@ class RobotAPI {
     return this.post('/api/v1/stop', {});
   }
 
+  async led(state) {
+    return this.post('/api/v1/led', { state });
+  }
+
   async getStatus() {
     return this.get('/api/v1/status');
   }

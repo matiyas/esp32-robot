@@ -78,6 +78,9 @@ extern "C" {
 #define APP_CAM_PIN_HREF  23
 #define APP_CAM_PIN_PCLK  22
 
+/* LED Configuration */
+#define APP_LED_GPIO 4
+
 /* SPIFFS Configuration */
 #define APP_SPIFFS_BASE_PATH "/spiffs"
 #define APP_SPIFFS_MAX_FILES 5

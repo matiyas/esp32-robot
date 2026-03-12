@@ -52,6 +52,11 @@ esp_err_t api_handle_status(httpd_req_t *req);
 esp_err_t api_handle_camera(httpd_req_t *req);
 
 /**
+ * @brief Handle POST /api/v1/led
+ */
+esp_err_t api_handle_led(httpd_req_t *req);
+
+/**
  * @brief Handle GET /health
  */
 esp_err_t api_handle_health(httpd_req_t *req);

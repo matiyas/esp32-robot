@@ -260,7 +260,10 @@ body::before {
 
 /* Emergency Stop */
 .emergency-controls {
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
 }
 
 .emergency-stop {
@@ -305,6 +308,33 @@ body::before {
     inset 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
+/* LED Toggle */
+.led-toggle {
+  width: 60px;
+  height: 60px;
+  border: 2px solid #ffcc00;
+  background: var(--bg-button);
+  color: #ffcc00;
+  font-size: 0.9rem;
+  font-weight: bold;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.1s;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  touch-action: manipulation;
+}
+
+.led-toggle:hover {
+  box-shadow: 0 0 10px rgba(255, 204, 0, 0.4);
+}
+
+.led-toggle.active {
+  background: #ffcc00;
+  color: var(--bg-dark);
+  box-shadow: 0 0 20px rgba(255, 204, 0, 0.6);
+}
+
 /* Responsive adjustments */
 @media (max-width: 600px) {
   .control-btn {
@@ -321,6 +351,12 @@ body::before {
   .emergency-stop {
     height: 55px;
     font-size: 1rem;
+  }
+
+  .led-toggle {
+    width: 55px;
+    height: 55px;
+    font-size: 0.8rem;
   }
 }
 

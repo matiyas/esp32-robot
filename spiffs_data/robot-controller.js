@@ -5,6 +5,7 @@ class RobotController {
     this.isConnected = false;
     this.movementDuration = 250;
     this.turretDuration = 350;
+    this.ledState = false;
 
     this.init();
   }
@@ -15,6 +16,7 @@ class RobotController {
     this.setupMovementControls();
     this.setupTurretControls();
     this.setupEmergencyStop();
+    this.setupLedToggle();
 
     await this.loadCameraStream();
     await this.checkStatus();
@@ -46,6 +48,11 @@ class RobotController {
   setupEmergencyStop() {
     const btnStop = document.getElementById('btnStop');
     if (btnStop) btnStop.addEventListener('click', () => this.emergencyStop());
+  }
+
+  setupLedToggle() {
+    const btnLed = document.getElementById('btnLed');
+    if (btnLed) btnLed.addEventListener('click', () => this.toggleLed());
   }
 
   setupButton(button, action) {
@@ -121,6 +128,20 @@ class RobotController {
     } catch (error) {
       console.error('Emergency stop failed:', error);
       this.showError('Emergency stop failed');
+    }
+  }
+
+  async toggleLed() {
+    try {
+      this.ledState = !this.ledState;
+      const btnLed = document.getElementById('btnLed');
+      const result = await this.api.led(this.ledState);
+      btnLed.classList.toggle('active', this.ledState);
+      console.log('LED toggled:', result);
+    } catch (error) {
+      this.ledState = !this.ledState;
+      console.error('LED toggle failed:', error);
+      this.showError('LED toggle failed');
     }
   }
 

@@ -208,6 +208,40 @@ esp_err_t api_handle_camera(httpd_req_t *req) {
     return api_send_success(req, response);
 }
 
+esp_err_t api_handle_led(httpd_req_t *req) {
+    char body[API_MAX_BODY_SIZE];
+
+    esp_err_t ret = api_read_body(req, body, sizeof(body));
+    if (ret != ESP_OK) {
+        return api_send_error(req, 400, "Failed to read body");
+    }
+
+    cJSON *json = cJSON_Parse(body);
+    if (json == NULL) {
+        return api_send_error(req, 400, "Invalid JSON");
+    }
+
+    cJSON *state_json = cJSON_GetObjectItem(json, "state");
+    if (!cJSON_IsBool(state_json)) {
+        cJSON_Delete(json);
+        return api_send_error(req, 400, "Missing state");
+    }
+
+    bool state = cJSON_IsTrue(state_json);
+    cJSON_Delete(json);
+
+    robot_result_t result = robot_led(state);
+
+    if (!result.success) {
+        return api_send_error(req, 500, "LED control failed");
+    }
+
+    char response[64];
+    snprintf(response, sizeof(response), "\"state\":%s", state ? "true" : "false");
+
+    return api_send_success(req, response);
+}
+
 esp_err_t api_handle_health(httpd_req_t *req) {
     api_set_cors_headers(req);
     httpd_resp_set_type(req, "application/json");
@@ -253,6 +287,7 @@ esp_err_t api_handlers_register(httpd_handle_t server, const char *base_path) {
          .handler = api_handle_turret,
          .user_ctx = NULL},
         {.uri = "/api/v1/stop", .method = HTTP_POST, .handler = api_handle_stop, .user_ctx = NULL},
+        {.uri = "/api/v1/led", .method = HTTP_POST, .handler = api_handle_led, .user_ctx = NULL},
         {.uri = "/api/v1/status",
          .method = HTTP_GET,
          .handler = api_handle_status,
@@ -274,6 +309,10 @@ esp_err_t api_handlers_register(httpd_handle_t server, const char *base_path) {
          .handler = handle_options,
          .user_ctx = NULL},
         {.uri = "/api/v1/stop",
+         .method = HTTP_OPTIONS,
+         .handler = handle_options,
+         .user_ctx = NULL},
+        {.uri = "/api/v1/led",
          .method = HTTP_OPTIONS,
          .handler = handle_options,
          .user_ctx = NULL}};

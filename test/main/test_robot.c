@@ -116,3 +116,39 @@ void test_robot_stop(void)
 
     robot_cleanup();
 }
+
+void test_robot_led_on(void)
+{
+    robot_config_t config = {
+        .movement_timeout_ms = 5000,
+        .turret_timeout_ms = 2000,
+        .gpio_enabled = false,
+        .camera_url = "/stream"
+    };
+
+    robot_init(&config);
+
+    robot_result_t result = robot_led(true);
+
+    TEST_ASSERT_TRUE(result.success);
+
+    robot_cleanup();
+}
+
+void test_robot_led_off(void)
+{
+    robot_config_t config = {
+        .movement_timeout_ms = 5000,
+        .turret_timeout_ms = 2000,
+        .gpio_enabled = false,
+        .camera_url = "/stream"
+    };
+
+    robot_init(&config);
+
+    robot_result_t result = robot_led(false);
+
+    TEST_ASSERT_TRUE(result.success);
+
+    robot_cleanup();
+}

@@ -99,6 +99,14 @@ robot_result_t robot_stop(void);
 robot_status_t robot_get_status(void);
 
 /**
+ * @brief Set LED state
+ *
+ * @param state true to turn on, false to turn off
+ * @return Result of LED operation
+ */
+robot_result_t robot_led(bool state);
+
+/**
  * @brief Cleanup robot resources
  *
  * Stops all motors, releases servo, and frees resources.

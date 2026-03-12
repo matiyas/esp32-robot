@@ -9,9 +9,12 @@
 
 #include <string.h>
 
+#include "hal_gpio.h"
 #include "motor_control.h"
 #include "safety_handler.h"
 #include "servo_control.h"
+
+#define LED_GPIO 4
 
 static const char *TAG = "robot";
 
@@ -28,6 +31,12 @@ esp_err_t robot_init(const robot_config_t *config) {
 
     memcpy(&s_robot.config, config, sizeof(robot_config_t));
     s_robot.initialized = true;
+
+    /* Turn off LED by default */
+    if (config->gpio_enabled) {
+        hal_gpio_init_output(LED_GPIO);
+        hal_gpio_set_level(LED_GPIO, 0);
+    }
 
     ESP_LOGI(TAG, "Robot initialized (gpio_enabled=%d, movement_timeout=%lu, turret_timeout=%lu)",
              config->gpio_enabled, config->movement_timeout_ms, config->turret_timeout_ms);
@@ -180,6 +189,31 @@ robot_status_t robot_get_status(void) {
                              .camera_url = s_robot.config.camera_url};
 
     return status;
+}
+
+robot_result_t robot_led(bool state) {
+    robot_result_t result = {.action = ROBOT_ACTION_STOP_ALL, .duration_ms = 0, .success = false};
+
+    if (!s_robot.initialized) {
+        ESP_LOGE(TAG, "Robot not initialized");
+        return result;
+    }
+
+    if (s_robot.config.gpio_enabled) {
+        esp_err_t err = hal_gpio_init_output(LED_GPIO);
+        if (err == ESP_OK) {
+            err = hal_gpio_set_level(LED_GPIO, state ? 1 : 0);
+        }
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "LED control failed: %s", esp_err_to_name(err));
+            return result;
+        }
+    }
+
+    result.success = true;
+    ESP_LOGI(TAG, "LED %s", state ? "on" : "off");
+
+    return result;
 }
 
 void robot_cleanup(void) {
