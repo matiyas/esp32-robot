@@ -24,6 +24,8 @@ static struct {
     servo_config_t config;
     hal_pwm_channel_t pwm_channel;
     uint8_t current_angle;
+    volatile uint8_t target_angle;
+    volatile bool moving;
 } s_servo = {0};
 
 /**
@@ -77,6 +79,7 @@ esp_err_t servo_init(const servo_config_t *config) {
 
     s_servo.config = *config;
     s_servo.current_angle = config->default_angle;
+    s_servo.target_angle = config->default_angle;
     s_servo.initialized = true;
 
     /* Move to default position */
@@ -109,31 +112,45 @@ esp_err_t servo_move_to(uint8_t angle, bool smooth) {
         angle = s_servo.config.max_angle;
     }
 
-    if (!smooth) {
-        return set_angle_internal(angle);
+    /* Update target - movement loop will pick it up */
+    s_servo.target_angle = angle;
+
+    /* If already moving, the loop will continue toward new target */
+    if (s_servo.moving) {
+        ESP_LOGD(TAG, "Servo moving, target updated to %d°", angle);
+        return ESP_OK;
     }
 
-    /* Smooth movement with interpolation */
-    uint8_t current = s_servo.current_angle;
-    int8_t direction = (angle > current) ? 1 : -1;
+    s_servo.moving = true;
+
+    if (!smooth) {
+        esp_err_t ret = set_angle_internal(angle);
+        s_servo.moving = false;
+        return ret;
+    }
+
     uint8_t step = s_servo.config.smooth_step_degrees;
 
-    ESP_LOGD(TAG, "Smooth move from %d° to %d°", current, angle);
+    ESP_LOGD(TAG, "Smooth move from %d° to %d°", s_servo.current_angle, s_servo.target_angle);
 
-    while (current != angle) {
+    /* Keep moving until we reach the target (target may be updated mid-movement) */
+    while (s_servo.current_angle != s_servo.target_angle) {
+        uint8_t target = s_servo.target_angle;
+        uint8_t current = s_servo.current_angle;
+        int8_t direction = (target > current) ? 1 : -1;
+
         int next = current + (direction * step);
 
         /* Clamp to target */
-        if ((direction > 0 && next > angle) || (direction < 0 && next < angle)) {
-            next = angle;
+        if ((direction > 0 && next > target) || (direction < 0 && next < target)) {
+            next = target;
         }
 
         esp_err_t ret = set_angle_internal((uint8_t)next);
         if (ret != ESP_OK) {
+            s_servo.moving = false;
             return ret;
         }
-
-        current = (uint8_t)next;
 
         /* Precise microsecond delay for consistent timing */
         ets_delay_us(s_servo.config.smooth_delay_ms * 1000);
@@ -141,6 +158,8 @@ esp_err_t servo_move_to(uint8_t angle, bool smooth) {
 
     /* Yield once after movement to let other tasks run */
     vTaskDelay(1);
+
+    s_servo.moving = false;
 
     return ESP_OK;
 }

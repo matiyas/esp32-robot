@@ -4,12 +4,12 @@ class RobotAPI {
     this.baseUrl = baseUrl;
   }
 
-  async move(direction, duration = 1000) {
-    return this.post('/api/v1/move', { direction, duration });
+  async move(direction, duration = 1000, signal = null) {
+    return this.post('/api/v1/move', { direction, duration }, signal);
   }
 
-  async turret(direction, duration = 500) {
-    return this.post('/api/v1/turret', { direction, duration });
+  async turret(direction, duration = 500, signal = null) {
+    return this.post('/api/v1/turret', { direction, duration }, signal);
   }
 
   async stop() {
@@ -28,16 +28,21 @@ class RobotAPI {
     return this.get('/api/v1/camera');
   }
 
-  async post(endpoint, data) {
+  async post(endpoint, data, signal = null) {
     try {
-      const response =
-        await fetch(this.baseUrl + endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(data),
-        });
+      const options = {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      };
+
+      if (signal) {
+        options.signal = signal;
+      }
+
+      const response = await fetch(this.baseUrl + endpoint, options);
 
       if (!response.ok) {
         const error = await response.json();

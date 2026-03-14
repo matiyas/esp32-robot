@@ -88,8 +88,8 @@ Robot Controller Configuration ->
     Min Pulse: 500 µs
     Max Pulse: 2400 µs
     Step Angle: 10°
-    Smooth Step: 2°
-    Smooth Delay: 15 ms
+    Smooth Step: 1°
+    Smooth Delay: 9 ms
   Camera Settings ->
     Frame Size: 6 (QVGA 320x240)
     JPEG Quality: 4 (best)

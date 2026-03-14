@@ -6,6 +6,7 @@ class RobotController {
     this.movementDuration = 250;
     this.turretDuration = 350;
     this.ledState = false;
+    this.moveAbortController = null;
 
     this.init();
   }
@@ -108,10 +109,12 @@ class RobotController {
       isPressed = true;
       button.classList.add('active');
 
+      this.moveAbortController = new AbortController();
+
       action();
 
       pressTimer = setInterval(() => {
-        action();
+        if (isPressed) action();
       }, 100);
 
       console.log(`Button pressed: ${button.id}`);
@@ -126,6 +129,11 @@ class RobotController {
       if (pressTimer) {
         clearInterval(pressTimer);
         pressTimer = null;
+      }
+
+      if (this.moveAbortController) {
+        this.moveAbortController.abort();
+        this.moveAbortController = null;
       }
 
       this.stopMovement();
@@ -144,21 +152,26 @@ class RobotController {
 
   async move(direction) {
     try {
-      const result = await this.api.move(direction, this.movementDuration);
+      const result =
+        await this.api.move(direction, this.movementDuration, this.moveAbortController?.signal);
       console.log('Move command sent:', result);
     } catch (error) {
-      console.error('Move failed:', error);
-      this.showError('Movement command failed');
+      if (error.name !== 'AbortError') {
+        console.error('Move failed:', error);
+      }
     }
   }
 
   async turret(direction) {
     try {
-      const result = await this.api.turret(direction, this.turretDuration);
+      const result =
+        await this.api.turret(direction, this.turretDuration, this.moveAbortController?.signal);
       console.log('Turret command sent:', result);
     } catch (error) {
-      console.error('Turret command failed:', error);
-      this.showError('Turret command failed');
+      if (error.name !== 'AbortError') {
+        console.error('Turret command failed:', error);
+        this.showError('Turret command failed');
+      }
     }
   }
 
