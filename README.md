@@ -9,12 +9,12 @@ A robot tank controller running on ESP32-CAM (AI-Thinker) with REST API, camera 
 
 ## Features
 
-- **Motor Control**: DRV8833 dual H-bridge driver with PWM soft-start ramp
+- **Motor Control**: DRV8833 dual H-bridge driver with direct PWM on motor pins
 - **Servo Control**: SG90 micro servo for camera turret with smooth interpolation
-- **Camera Streaming**: MJPEG stream via built-in OV2640 camera
+- **Camera Streaming**: Optimized MJPEG stream via built-in OV2640 camera (8MHz XCLK to avoid WiFi interference)
 - **LED Control**: Toggleable flash LED for illumination
 - **REST API**: Full API for robot control (OpenAPI documented)
-- **Web UI**: Mobile-friendly terminal-style control dashboard
+- **Web UI**: Mobile-friendly terminal-style control dashboard with fullscreen camera view
 - **Safety Features**: Watchdog timer, movement timeout, emergency stop
 
 ## Hardware Requirements
@@ -30,15 +30,14 @@ A robot tank controller running on ESP32-CAM (AI-Thinker) with REST API, camera 
 
 | Function | Default GPIO | Notes |
 |----------|--------------|-------|
-| Motor Left IN1 | 12 | SD card D2 (unused) |
-| Motor Left IN2 | 13 | SD card D3 (unused) |
-| Motor Right IN1 | 14 | SD card CLK (unused) |
-| Motor Right IN2 | 15 | SD card CMD (unused) |
-| Motors Enable (PWM) | 2 | SD card D0 (unused) |
-| Servo Signal | 16 | U2RXD |
+| Motor Left IN1 | 12 | PWM controlled, SD card D2 (unused) |
+| Motor Left IN2 | 13 | PWM controlled, SD card D3 (unused) |
+| Motor Right IN1 | 14 | PWM controlled, SD card CLK (unused) |
+| Motor Right IN2 | 15 | PWM controlled, SD card CMD (unused) |
+| Servo Signal | 2 | SD card D0 (unused) |
 | Flash LED | 4 | Built-in flash LED |
 
-**Note**: SD card functionality is sacrificed to free GPIO pins for motor/servo control.
+**Note**: SD card functionality is sacrificed to free GPIO pins for motor/servo control. DRV8833 nSLEEP pin should be tied to VCC (always enabled).
 
 ### Camera Pins (Fixed - AI-Thinker)
 

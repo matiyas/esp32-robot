@@ -32,11 +32,13 @@ static const char *STREAM_PATH = "/stream";
 
 /**
  * @brief MJPEG stream handler
+ *
+ * Optimized for lower latency by combining boundary and header into single chunk.
  */
 static esp_err_t stream_handler(httpd_req_t *req) {
     camera_fb_t *fb = NULL;
     esp_err_t res = ESP_OK;
-    char part_buf[64];
+    char part_buf[128];
 
     res = httpd_resp_set_type(req, STREAM_CONTENT_TYPE);
     if (res != ESP_OK) {
@@ -45,6 +47,7 @@ static esp_err_t stream_handler(httpd_req_t *req) {
 
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     httpd_resp_set_hdr(req, "X-Framerate", "25");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-cache, no-store, must-revalidate");
 
     ESP_LOGI(TAG, "MJPEG stream started");
 
@@ -63,13 +66,11 @@ static esp_err_t stream_handler(httpd_req_t *req) {
             break;
         }
 
-        size_t hlen = snprintf(part_buf, sizeof(part_buf), STREAM_PART, fb->len);
-
-        res = httpd_resp_send_chunk(req, STREAM_BOUNDARY, strlen(STREAM_BOUNDARY));
-        if (res != ESP_OK) {
-            esp_camera_fb_return(fb);
-            break;
-        }
+        /* Combine boundary and header into single chunk to reduce overhead */
+        size_t hlen = snprintf(part_buf, sizeof(part_buf),
+                               "%s"
+                               "Content-Type: image/jpeg\r\nContent-Length: %zu\r\n\r\n",
+                               STREAM_BOUNDARY, fb->len);
 
         res = httpd_resp_send_chunk(req, part_buf, hlen);
         if (res != ESP_OK) {
@@ -84,8 +85,8 @@ static esp_err_t stream_handler(httpd_req_t *req) {
             break;
         }
 
-        /* Yield to allow other HTTP requests to be processed */
-        vTaskDelay(pdMS_TO_TICKS(20));
+        /* Yield to allow WiFi stack to flush send buffer */
+        vTaskDelay(1);
     }
 
     ESP_LOGI(TAG, "MJPEG stream ended");
@@ -116,7 +117,7 @@ esp_err_t camera_stream_init(const camera_stream_config_t *config) {
                                   .pin_href = 23,
                                   .pin_pclk = 22,
 
-                                  .xclk_freq_hz = 20000000,
+                                  .xclk_freq_hz = 8000000, /* 8MHz to avoid WiFi interference */
                                   .ledc_timer = LEDC_TIMER_0,
                                   .ledc_channel = LEDC_CHANNEL_0,
 
@@ -133,7 +134,7 @@ esp_err_t camera_stream_init(const camera_stream_config_t *config) {
         return ret;
     }
 
-    /* Adjust sensor settings for better quality */
+    /* Adjust sensor settings - optimized for streaming speed */
     sensor_t *sensor = esp_camera_sensor_get();
     if (sensor) {
         sensor->set_brightness(sensor, 0);
@@ -143,14 +144,14 @@ esp_err_t camera_stream_init(const camera_stream_config_t *config) {
         sensor->set_awb_gain(sensor, 1);
         sensor->set_wb_mode(sensor, 0);
         sensor->set_exposure_ctrl(sensor, 1);
-        sensor->set_aec2(sensor, 1);
+        sensor->set_aec2(sensor, 0); /* Disable AEC DSP for speed */
         sensor->set_gain_ctrl(sensor, 1);
         sensor->set_agc_gain(sensor, 0);
         sensor->set_gainceiling(sensor, (gainceiling_t)2);
-        sensor->set_bpc(sensor, 1);
-        sensor->set_wpc(sensor, 1);
+        sensor->set_bpc(sensor, 1); /* Enable bad pixel correction */
+        sensor->set_wpc(sensor, 1); /* Enable white pixel correction */
         sensor->set_raw_gma(sensor, 1);
-        sensor->set_lenc(sensor, 1);
+        sensor->set_lenc(sensor, 0); /* Disable lens correction for speed */
         sensor->set_hmirror(sensor, 0);
         sensor->set_vflip(sensor, 0);
     }
@@ -203,8 +204,9 @@ esp_err_t camera_stream_start_server(uint16_t port) {
     config.server_port = port;
     config.ctrl_port = port + 1;
     config.max_uri_handlers = 2;
-    config.max_open_sockets = 2;
-    config.stack_size = 8192;
+    config.max_open_sockets = 4;    /* Allow more concurrent stream viewers */
+    config.stack_size = 16384;      /* Larger stack for JPEG handling */
+    config.lru_purge_enable = true; /* Enable LRU purge for better socket management */
 
     esp_err_t ret = httpd_start(&s_stream_server, &config);
     if (ret != ESP_OK) {

@@ -17,6 +17,7 @@ class RobotController {
     this.setupTurretControls();
     this.setupEmergencyStop();
     this.setupLedToggle();
+    this.setupFullscreen();
 
     await this.loadCameraStream();
     await this.checkStatus();
@@ -53,6 +54,47 @@ class RobotController {
   setupLedToggle() {
     const btnLed = document.getElementById('btnLed');
     if (btnLed) btnLed.addEventListener('click', () => this.toggleLed());
+  }
+
+  setupFullscreen() {
+    const btnFullscreen = document.getElementById('btnFullscreen');
+    const cameraSection = document.getElementById('cameraSection');
+
+    if (btnFullscreen && cameraSection) {
+      btnFullscreen.addEventListener('click', () => this.toggleFullscreen());
+
+      document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement) {
+          cameraSection.classList.remove('fullscreen');
+          btnFullscreen.textContent = '⛶';
+        }
+      });
+
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && cameraSection.classList.contains('fullscreen')) {
+          this.toggleFullscreen();
+        }
+      });
+    }
+  }
+
+  toggleFullscreen() {
+    const cameraSection = document.getElementById('cameraSection');
+    const btnFullscreen = document.getElementById('btnFullscreen');
+
+    if (cameraSection.classList.contains('fullscreen')) {
+      cameraSection.classList.remove('fullscreen');
+      btnFullscreen.textContent = '⛶';
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      }
+    } else {
+      cameraSection.classList.add('fullscreen');
+      btnFullscreen.textContent = '✕';
+      if (cameraSection.requestFullscreen) {
+        cameraSection.requestFullscreen().catch(() => {});
+      }
+    }
   }
 
   setupButton(button, action) {

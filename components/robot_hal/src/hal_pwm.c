@@ -15,10 +15,15 @@ static const char *TAG = "hal_pwm";
 #define LEDC_TIMER_RESOLUTION LEDC_TIMER_13_BIT
 #define LEDC_MAX_DUTY         ((1 << LEDC_TIMER_RESOLUTION) - 1)
 
-/* Offset to avoid conflict with camera XCLK (uses timer 0, channel 0) */
-#define LEDC_TIMER_OFFSET    2
-#define LEDC_CHANNEL_OFFSET  4
+/*
+ * Channel 0 and Timer 0 reserved for camera XCLK.
+ * We use channels 1-7 and timers 1-3.
+ */
+#define LEDC_CHANNEL_OFFSET  1
 #define GET_LEDC_CHANNEL(ch) ((ledc_channel_t)((ch) + LEDC_CHANNEL_OFFSET))
+
+/* Track which timer is used for which frequency */
+static uint32_t timer_freq[4] = {0}; /* timer 0 reserved for camera */
 
 /* Track allocated channels */
 static bool channel_used[HAL_PWM_MAX_CHANNELS] = {false};
@@ -47,8 +52,21 @@ esp_err_t hal_pwm_init(gpio_num_t pin, uint32_t frequency_hz, hal_pwm_channel_t 
         return ESP_ERR_NO_MEM;
     }
 
-    /* Configure LEDC timer - offset to avoid conflict with camera XCLK (timer 0, channel 0) */
-    ledc_timer_t timer_num = (ledc_timer_t)((ch / 2) + LEDC_TIMER_OFFSET);
+    /* Find or allocate timer for this frequency (timer 0 reserved for camera) */
+    ledc_timer_t timer_num = LEDC_TIMER_MAX;
+    for (int t = 1; t < 4; t++) {
+        if (timer_freq[t] == frequency_hz) {
+            timer_num = (ledc_timer_t)t;
+            break;
+        }
+        if (timer_freq[t] == 0 && timer_num == LEDC_TIMER_MAX) {
+            timer_num = (ledc_timer_t)t;
+        }
+    }
+    if (timer_num == LEDC_TIMER_MAX) {
+        ESP_LOGE(TAG, "No free timers available");
+        return ESP_ERR_NO_MEM;
+    }
     ledc_channel_t channel_num = GET_LEDC_CHANNEL(ch);
 
     ledc_timer_config_t timer_conf = {.speed_mode = LEDC_LOW_SPEED_MODE,
@@ -62,6 +80,7 @@ esp_err_t hal_pwm_init(gpio_num_t pin, uint32_t frequency_hz, hal_pwm_channel_t 
         ESP_LOGE(TAG, "LEDC timer config failed: %s", esp_err_to_name(ret));
         return ret;
     }
+    timer_freq[timer_num] = frequency_hz;
 
     /* Configure LEDC channel */
     ledc_channel_config_t channel_conf = {.speed_mode = LEDC_LOW_SPEED_MODE,

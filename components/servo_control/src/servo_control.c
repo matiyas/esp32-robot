@@ -6,9 +6,12 @@
 #include "servo_control.h"
 
 #include <esp_log.h>
+#include <esp_timer.h>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+
+#include <rom/ets_sys.h>
 
 #include "hal_pwm.h"
 #include "hal_types.h"
@@ -132,8 +135,12 @@ esp_err_t servo_move_to(uint8_t angle, bool smooth) {
 
         current = (uint8_t)next;
 
-        vTaskDelay(pdMS_TO_TICKS(s_servo.config.smooth_delay_ms));
+        /* Precise microsecond delay for consistent timing */
+        ets_delay_us(s_servo.config.smooth_delay_ms * 1000);
     }
+
+    /* Yield once after movement to let other tasks run */
+    vTaskDelay(1);
 
     return ESP_OK;
 }
@@ -143,10 +150,10 @@ esp_err_t servo_step_left(void) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    int new_angle = s_servo.current_angle - s_servo.config.step_angle;
+    int new_angle = s_servo.current_angle + s_servo.config.step_angle;
 
-    if (new_angle < s_servo.config.min_angle) {
-        new_angle = s_servo.config.min_angle;
+    if (new_angle > s_servo.config.max_angle) {
+        new_angle = s_servo.config.max_angle;
     }
 
     ESP_LOGD(TAG, "Step left: %d° -> %d°", s_servo.current_angle, new_angle);
@@ -159,10 +166,10 @@ esp_err_t servo_step_right(void) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    int new_angle = s_servo.current_angle + s_servo.config.step_angle;
+    int new_angle = s_servo.current_angle - s_servo.config.step_angle;
 
-    if (new_angle > s_servo.config.max_angle) {
-        new_angle = s_servo.config.max_angle;
+    if (new_angle < s_servo.config.min_angle) {
+        new_angle = s_servo.config.min_angle;
     }
 
     ESP_LOGD(TAG, "Step right: %d° -> %d°", s_servo.current_angle, new_angle);

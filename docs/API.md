@@ -1,6 +1,6 @@
 # Robot Tank Control API
 
-REST API documentation for the ESP32-S3-CAM robot controller.
+REST API documentation for the ESP32-CAM robot controller.
 
 ## Base URL
 
@@ -135,6 +135,42 @@ Immediately stop all motors.
   "action": "stop"
 }
 ```
+
+### Control LED
+
+```
+POST /api/v1/led
+```
+
+Toggle the flash LED on/off.
+
+**Request Body:**
+```json
+{
+  "state": true
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| state | boolean | Yes | true = on, false = off |
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### Camera Stream
+
+```
+GET /stream
+```
+
+MJPEG camera stream (available on port 4568).
+
+**Note:** The camera stream runs on a separate HTTP server (main port + 1) to avoid blocking the control API.
 
 ## Error Responses
 

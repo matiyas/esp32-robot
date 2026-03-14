@@ -1,6 +1,6 @@
 /**
  * @file motor_control.c
- * @brief DRV8833 motor driver implementation
+ * @brief DRV8833 motor driver implementation with direct PWM on motor pins
  */
 
 #include "motor_control.h"
@@ -13,7 +13,6 @@
 
 #include "hal_gpio.h"
 #include "hal_pwm.h"
-#include "pwm_ramper.h"
 
 static const char *TAG = "motor_control";
 
@@ -21,41 +20,40 @@ static const char *TAG = "motor_control";
 static struct {
     bool initialized;
     motor_control_config_t config;
-    hal_pwm_channel_t pwm_channel;
+    hal_pwm_channel_t left_in1_pwm;
+    hal_pwm_channel_t left_in2_pwm;
+    hal_pwm_channel_t right_in1_pwm;
+    hal_pwm_channel_t right_in2_pwm;
 } s_motor = {0};
 
 /**
- * @brief Log current GPIO states for debugging
+ * @brief Set motor speed and direction using PWM
+ *
+ * DRV8833 truth table:
+ * - Forward:  IN1=PWM, IN2=LOW  (speed controlled by PWM duty)
+ * - Backward: IN1=LOW, IN2=PWM  (speed controlled by PWM duty)
+ * - Brake:    IN1=HIGH, IN2=HIGH
+ * - Coast:    IN1=LOW, IN2=LOW
  */
-static void log_gpio_states(void) {
-    ESP_LOGI(TAG, "GPIO states: IN1_L(12)=%d IN2_L(13)=%d IN1_R(14)=%d IN2_R(15)=%d",
-             gpio_get_level(s_motor.config.left_motor.in1),
-             gpio_get_level(s_motor.config.left_motor.in2),
-             gpio_get_level(s_motor.config.right_motor.in1),
-             gpio_get_level(s_motor.config.right_motor.in2));
-}
-
-/**
- * @brief Set motor direction using DRV8833 truth table
- */
-static void set_motor_direction(const motor_pins_t *motor, motor_mode_t mode) {
+static void set_motor(hal_pwm_channel_t in1, hal_pwm_channel_t in2, motor_mode_t mode,
+                      uint8_t speed) {
     switch (mode) {
         case MOTOR_MODE_FORWARD:
-            hal_gpio_set_level(motor->in1, 1);
-            hal_gpio_set_level(motor->in2, 0);
+            hal_pwm_set_duty(in1, speed);
+            hal_pwm_set_duty(in2, 0);
             break;
         case MOTOR_MODE_BACKWARD:
-            hal_gpio_set_level(motor->in1, 0);
-            hal_gpio_set_level(motor->in2, 1);
+            hal_pwm_set_duty(in1, 0);
+            hal_pwm_set_duty(in2, speed);
             break;
         case MOTOR_MODE_BRAKE:
-            hal_gpio_set_level(motor->in1, 1);
-            hal_gpio_set_level(motor->in2, 1);
+            hal_pwm_set_duty(in1, 100);
+            hal_pwm_set_duty(in2, 100);
             break;
         case MOTOR_MODE_COAST:
         default:
-            hal_gpio_set_level(motor->in1, 0);
-            hal_gpio_set_level(motor->in2, 0);
+            hal_pwm_set_duty(in1, 0);
+            hal_pwm_set_duty(in2, 0);
             break;
     }
 }
@@ -67,40 +65,32 @@ esp_err_t motor_control_init(const motor_control_config_t *config) {
 
     esp_err_t ret;
 
-    /* Initialize left motor GPIO */
-    ret = hal_gpio_init_output(config->left_motor.in1);
-    if (ret != ESP_OK)
-        return ret;
-
-    ret = hal_gpio_init_output(config->left_motor.in2);
-    if (ret != ESP_OK)
-        return ret;
-
-    /* Initialize right motor GPIO */
-    ret = hal_gpio_init_output(config->right_motor.in1);
-    if (ret != ESP_OK)
-        return ret;
-
-    ret = hal_gpio_init_output(config->right_motor.in2);
-    if (ret != ESP_OK)
-        return ret;
-
-    /* Initialize PWM for enable pin */
-    ret = hal_pwm_init(config->enable_pin, config->pwm_frequency_hz, &s_motor.pwm_channel);
+    /* Initialize PWM for all motor pins */
+    ret = hal_pwm_init(config->left_motor.in1, config->pwm_frequency_hz, &s_motor.left_in1_pwm);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "PWM init failed");
+        ESP_LOGE(TAG, "Left IN1 PWM init failed");
         return ret;
     }
 
-    /* Initialize PWM ramper */
-    pwm_ramper_config_t ramper_config = {.ramp_duration_ms = config->ramp_duration_ms,
-                                         .num_steps = config->ramp_steps,
-                                         .max_duty_percent = 100};
-    ret = pwm_ramper_init(s_motor.pwm_channel, &ramper_config);
+    ret = hal_pwm_init(config->left_motor.in2, config->pwm_frequency_hz, &s_motor.left_in2_pwm);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "PWM ramper init failed");
+        ESP_LOGE(TAG, "Left IN2 PWM init failed");
         return ret;
     }
+
+    ret = hal_pwm_init(config->right_motor.in1, config->pwm_frequency_hz, &s_motor.right_in1_pwm);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Right IN1 PWM init failed");
+        return ret;
+    }
+
+    ret = hal_pwm_init(config->right_motor.in2, config->pwm_frequency_hz, &s_motor.right_in2_pwm);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Right IN2 PWM init failed");
+        return ret;
+    }
+
+    /* DRV8833 nSLEEP pin should be tied to VCC to keep it always enabled */
 
     memcpy(&s_motor.config, config, sizeof(motor_control_config_t));
     s_motor.initialized = true;
@@ -108,8 +98,8 @@ esp_err_t motor_control_init(const motor_control_config_t *config) {
     /* Set motors to coast mode initially */
     motor_stop_all();
 
-    ESP_LOGI(TAG, "Motor control initialized (freq=%lu Hz, ramp=%lu ms)", config->pwm_frequency_hz,
-             config->ramp_duration_ms);
+    ESP_LOGI(TAG, "Motor control initialized with direct PWM (freq=%lu Hz)",
+             config->pwm_frequency_hz);
 
     return ESP_OK;
 }
@@ -119,12 +109,10 @@ esp_err_t motor_move_forward(uint32_t duration_ms) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    ESP_LOGI(TAG, "Moving forward (duration=%lu ms)", duration_ms);
+    ESP_LOGI(TAG, "Moving forward");
 
-    set_motor_direction(&s_motor.config.left_motor, MOTOR_MODE_FORWARD);
-    set_motor_direction(&s_motor.config.right_motor, MOTOR_MODE_FORWARD);
-    log_gpio_states();
-    pwm_ramper_start();
+    set_motor(s_motor.left_in1_pwm, s_motor.left_in2_pwm, MOTOR_MODE_FORWARD, 100);
+    set_motor(s_motor.right_in1_pwm, s_motor.right_in2_pwm, MOTOR_MODE_FORWARD, 100);
 
     return ESP_OK;
 }
@@ -134,12 +122,10 @@ esp_err_t motor_move_backward(uint32_t duration_ms) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    ESP_LOGI(TAG, "Moving backward (duration=%lu ms)", duration_ms);
+    ESP_LOGI(TAG, "Moving backward");
 
-    set_motor_direction(&s_motor.config.left_motor, MOTOR_MODE_BACKWARD);
-    set_motor_direction(&s_motor.config.right_motor, MOTOR_MODE_BACKWARD);
-    log_gpio_states();
-    pwm_ramper_start();
+    set_motor(s_motor.left_in1_pwm, s_motor.left_in2_pwm, MOTOR_MODE_BACKWARD, 100);
+    set_motor(s_motor.right_in1_pwm, s_motor.right_in2_pwm, MOTOR_MODE_BACKWARD, 100);
 
     return ESP_OK;
 }
@@ -149,13 +135,11 @@ esp_err_t motor_turn_left(uint32_t duration_ms) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    ESP_LOGI(TAG, "Turning left (duration=%lu ms)", duration_ms);
+    ESP_LOGI(TAG, "Turning left");
 
     /* Tank turn: left backward, right forward */
-    set_motor_direction(&s_motor.config.left_motor, MOTOR_MODE_BACKWARD);
-    set_motor_direction(&s_motor.config.right_motor, MOTOR_MODE_FORWARD);
-    log_gpio_states();
-    pwm_ramper_start();
+    set_motor(s_motor.left_in1_pwm, s_motor.left_in2_pwm, MOTOR_MODE_BACKWARD, 100);
+    set_motor(s_motor.right_in1_pwm, s_motor.right_in2_pwm, MOTOR_MODE_FORWARD, 100);
 
     return ESP_OK;
 }
@@ -165,13 +149,11 @@ esp_err_t motor_turn_right(uint32_t duration_ms) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    ESP_LOGI(TAG, "Turning right (duration=%lu ms)", duration_ms);
+    ESP_LOGI(TAG, "Turning right");
 
     /* Tank turn: left forward, right backward */
-    set_motor_direction(&s_motor.config.left_motor, MOTOR_MODE_FORWARD);
-    set_motor_direction(&s_motor.config.right_motor, MOTOR_MODE_BACKWARD);
-    log_gpio_states();
-    pwm_ramper_start();
+    set_motor(s_motor.left_in1_pwm, s_motor.left_in2_pwm, MOTOR_MODE_FORWARD, 100);
+    set_motor(s_motor.right_in1_pwm, s_motor.right_in2_pwm, MOTOR_MODE_BACKWARD, 100);
 
     return ESP_OK;
 }
@@ -183,13 +165,8 @@ esp_err_t motor_stop_all(void) {
 
     ESP_LOGI(TAG, "Stopping all motors");
 
-    /* Stop PWM ramp */
-    pwm_ramper_stop();
-
-    /* Set both motors to coast mode */
-    set_motor_direction(&s_motor.config.left_motor, MOTOR_MODE_COAST);
-    set_motor_direction(&s_motor.config.right_motor, MOTOR_MODE_COAST);
-    log_gpio_states();
+    set_motor(s_motor.left_in1_pwm, s_motor.left_in2_pwm, MOTOR_MODE_COAST, 0);
+    set_motor(s_motor.right_in1_pwm, s_motor.right_in2_pwm, MOTOR_MODE_COAST, 0);
 
     return ESP_OK;
 }
@@ -202,13 +179,11 @@ void motor_control_cleanup(void) {
     ESP_LOGI(TAG, "Motor control cleanup");
 
     motor_stop_all();
-    pwm_ramper_cleanup();
-    hal_pwm_cleanup(s_motor.pwm_channel);
 
-    /* Reset GPIO pins */
-    gpio_num_t pins[] = {s_motor.config.left_motor.in1, s_motor.config.left_motor.in2,
-                         s_motor.config.right_motor.in1, s_motor.config.right_motor.in2};
-    hal_gpio_reset_multiple(pins, 4);
+    hal_pwm_cleanup(s_motor.left_in1_pwm);
+    hal_pwm_cleanup(s_motor.left_in2_pwm);
+    hal_pwm_cleanup(s_motor.right_in1_pwm);
+    hal_pwm_cleanup(s_motor.right_in2_pwm);
 
     s_motor.initialized = false;
 }

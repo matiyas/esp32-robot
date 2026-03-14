@@ -28,3 +28,4 @@ dependencies.lock
 
 # Coverage
 coverage/
+.cache/

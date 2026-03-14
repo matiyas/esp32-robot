@@ -32,7 +32,7 @@ esp_err_t robot_init(const robot_config_t *config) {
     memcpy(&s_robot.config, config, sizeof(robot_config_t));
     s_robot.initialized = true;
 
-    /* Turn off LED by default */
+    /* Initialize LED (GPIO 4 - flash LED on ESP32-CAM) */
     if (config->gpio_enabled) {
         hal_gpio_init_output(LED_GPIO);
         hal_gpio_set_level(LED_GPIO, 0);

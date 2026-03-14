@@ -191,7 +191,7 @@ menu "Robot Controller Configuration"
             default 10
             range 0 13
             help
-                Frame size: 0=96x96, 5=320x240, 8=640x480, 10=800x600, 13=1600x1200
+                Frame size enum: 6=QVGA(320x240), 10=VGA(640x480), 11=SVGA(800x600), 12=XGA(1024x768)
 
         config ROBOT_CAMERA_JPEG_QUALITY
             int "JPEG Quality"
