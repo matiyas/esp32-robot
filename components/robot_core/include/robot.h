@@ -15,6 +15,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "rc_map.h"
 #include "robot_types.h"
 
 #ifdef __cplusplus
@@ -41,11 +42,25 @@ typedef struct {
 } robot_result_t;
 
 /**
+ * @brief RC (CRSF) control configuration for CAR kinematics
+ */
+typedef struct {
+    uint8_t steering_ch;          /**< Steering channel, 1-based */
+    uint8_t throttle_ch;          /**< Throttle channel, 1-based */
+    uint8_t arm_ch;               /**< Arm AUX channel, 1-based (0 = always armed) */
+    rc_throttle_cfg_t throttle;   /**< Throttle mapping */
+    rc_steer_cfg_t steer;         /**< Steering mapping */
+    uint32_t failsafe_timeout_ms; /**< No-frame window before failsafe */
+    int task_core_id;             /**< Core to pin the RC control task to */
+} robot_rc_cfg_t;
+
+/**
  * @brief Robot status information
  */
 typedef struct {
     bool connected;         /**< Controller is active */
     bool gpio_enabled;      /**< Hardware mode active */
+    bool rc_active;         /**< RC (CRSF) link is driving the robot */
     const char *camera_url; /**< Camera stream URL */
 } robot_status_t;
 
@@ -56,6 +71,19 @@ typedef struct {
  * @return ESP_OK on success
  */
 esp_err_t robot_init(const robot_config_t *config);
+
+/**
+ * @brief Start RC (CRSF) control for CAR kinematics
+ *
+ * Spawns the control task that polls the CRSF snapshot and drives the single
+ * drive motor + steering servo, registers the failsafe stop callback, and
+ * makes the RC link the primary controller (REST/web movement is ignored while
+ * the link is active). Call after robot_init() and crsf_input_start().
+ *
+ * @param cfg RC control configuration
+ * @return ESP_OK on success
+ */
+esp_err_t robot_start_rc(const robot_rc_cfg_t *cfg);
 
 /**
  * @brief Move the robot in specified direction

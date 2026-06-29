@@ -6,15 +6,22 @@
 #include "robot.h"
 
 #include <esp_log.h>
+#include <esp_timer.h>
+
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+#include <freertos/task.h>
 
 #include <string.h>
 
+#include "crsf_input.h"
 #include "hal_gpio.h"
 #include "motor_control.h"
 #include "safety_handler.h"
 #include "servo_control.h"
 
-#define LED_GPIO 4
+#define LED_GPIO          4
+#define RC_TASK_PERIOD_MS 15
 
 static const char *TAG = "robot";
 
@@ -22,7 +29,26 @@ static const char *TAG = "robot";
 static struct {
     bool initialized;
     robot_config_t config;
+    SemaphoreHandle_t cmd_mutex; /**< Serializes RC task vs REST hardware commands */
+    robot_rc_cfg_t rc_cfg;
+    volatile bool rc_running; /**< RC control task is active */
+    volatile bool rc_active;  /**< RC link is currently driving */
+    bool seen_disarm;         /**< Observed a disarmed state since (re)connect */
+    bool neutral_seen;        /**< Observed throttle neutral since (re)connect */
+    bool prev_connected;      /**< Previous RC connected state (for transitions) */
 } s_robot = {0};
+
+/* True while a fresh CRSF frame is within the failsafe window (read directly
+ * from the snapshot so a stalled control task can never permanently gate REST). */
+static bool rc_link_live(void) {
+    if (!s_robot.rc_running) {
+        return false;
+    }
+    crsf_snapshot_t snap = crsf_input_get_snapshot();
+    return rc_link_is_active(snap.last_frame_us, esp_timer_get_time(),
+                             s_robot.rc_cfg.failsafe_timeout_ms) &&
+           !snap.failsafe;
+}
 
 esp_err_t robot_init(const robot_config_t *config) {
     if (config == NULL) {
@@ -30,6 +56,14 @@ esp_err_t robot_init(const robot_config_t *config) {
     }
 
     memcpy(&s_robot.config, config, sizeof(robot_config_t));
+
+    if (s_robot.cmd_mutex == NULL) {
+        s_robot.cmd_mutex = xSemaphoreCreateMutex();
+        if (s_robot.cmd_mutex == NULL) {
+            return ESP_ERR_NO_MEM;
+        }
+    }
+
     s_robot.initialized = true;
 
     /* Initialize LED (GPIO 4 - flash LED on ESP32-CAM) */
@@ -51,6 +85,14 @@ robot_result_t robot_move(robot_direction_t direction, uint32_t duration_ms) {
         ESP_LOGE(TAG, "Robot not initialized");
         return result;
     }
+
+    /* Arbitration: the RC link is primary. Ignore REST/web movement while live. */
+    if (rc_link_live()) {
+        ESP_LOGW(TAG, "RC link active; ignoring REST move");
+        return result;
+    }
+
+    xSemaphoreTake(s_robot.cmd_mutex, portMAX_DELAY);
 
     /* Validate and clamp duration */
     uint32_t validated_duration =
@@ -93,6 +135,7 @@ robot_result_t robot_move(robot_direction_t direction, uint32_t duration_ms) {
 
         default:
             ESP_LOGE(TAG, "Invalid direction: %d", direction);
+            xSemaphoreGive(s_robot.cmd_mutex);
             return result;
     }
 
@@ -110,6 +153,7 @@ robot_result_t robot_move(robot_direction_t direction, uint32_t duration_ms) {
         ESP_LOGE(TAG, "Move failed: %s", esp_err_to_name(err));
     }
 
+    xSemaphoreGive(s_robot.cmd_mutex);
     return result;
 }
 
@@ -120,6 +164,14 @@ robot_result_t robot_turret(robot_direction_t direction, uint32_t duration_ms) {
         ESP_LOGE(TAG, "Robot not initialized");
         return result;
     }
+
+    /* Arbitration: the RC link is primary. Ignore REST/web turret while live. */
+    if (rc_link_live()) {
+        ESP_LOGW(TAG, "RC link active; ignoring REST turret");
+        return result;
+    }
+
+    xSemaphoreTake(s_robot.cmd_mutex, portMAX_DELAY);
 
     /* Validate duration (for logging, servo uses step mode) */
     uint32_t validated_duration =
@@ -144,6 +196,7 @@ robot_result_t robot_turret(robot_direction_t direction, uint32_t duration_ms) {
 
         default:
             ESP_LOGE(TAG, "Invalid turret direction: %d", direction);
+            xSemaphoreGive(s_robot.cmd_mutex);
             return result;
     }
 
@@ -155,6 +208,7 @@ robot_result_t robot_turret(robot_direction_t direction, uint32_t duration_ms) {
         ESP_LOGE(TAG, "Turret failed: %s", esp_err_to_name(err));
     }
 
+    xSemaphoreGive(s_robot.cmd_mutex);
     return result;
 }
 
@@ -186,6 +240,7 @@ robot_result_t robot_stop(void) {
 robot_status_t robot_get_status(void) {
     robot_status_t status = {.connected = s_robot.initialized,
                              .gpio_enabled = s_robot.config.gpio_enabled,
+                             .rc_active = s_robot.rc_active,
                              .camera_url = s_robot.config.camera_url};
 
     return status;
@@ -216,6 +271,115 @@ robot_result_t robot_led(bool state) {
     return result;
 }
 
+/* Failsafe stop: invoked by the crsf_input timer on link loss (esp_timer task).
+ * Independent of the RC control task so the vehicle stops even if it stalls. */
+static void robot_failsafe_cb(void) {
+    if (!s_robot.config.gpio_enabled) {
+        return;
+    }
+    motor_drive_signed(0);
+    servo_move_to(s_robot.rc_cfg.steer.servo_center_deg, false);
+}
+
+/* RC control loop: polls the CRSF snapshot and drives the car (CAR kinematics).
+ * Throttle is gated by arm-latch (requires a disarm->arm cycle) and a
+ * neutral-before-go latch after each (re)connect. */
+static void robot_rc_task(void *arg) {
+    (void)arg;
+    const TickType_t period = pdMS_TO_TICKS(RC_TASK_PERIOD_MS);
+
+    while (s_robot.rc_running) {
+        crsf_snapshot_t snap = crsf_input_get_snapshot();
+        bool connected = rc_link_is_active(snap.last_frame_us, esp_timer_get_time(),
+                                           s_robot.rc_cfg.failsafe_timeout_ms) &&
+                         !snap.failsafe;
+
+        if (connected) {
+            xSemaphoreTake(s_robot.cmd_mutex, portMAX_DELAY);
+
+            if (!s_robot.prev_connected) {
+                /* REST -> RC handover: flush any stale REST command and require
+                 * the operator to re-establish neutral and re-arm. */
+                safety_cancel_auto_stop();
+                if (s_robot.config.gpio_enabled) {
+                    motor_drive_signed(0);
+                }
+                s_robot.seen_disarm = false;
+                s_robot.neutral_seen = false;
+            }
+
+            uint16_t thr_tick = snap.channels[s_robot.rc_cfg.throttle_ch - 1];
+            uint16_t str_tick = snap.channels[s_robot.rc_cfg.steering_ch - 1];
+
+            bool armed_now = (s_robot.rc_cfg.arm_ch == 0)
+                                 ? true
+                                 : rc_is_armed(snap.channels[s_robot.rc_cfg.arm_ch - 1]);
+            if (!armed_now) {
+                s_robot.seen_disarm = true;
+            }
+            bool armed = s_robot.seen_disarm && armed_now;
+
+            int8_t throttle = rc_map_throttle(thr_tick, &s_robot.rc_cfg.throttle);
+            if (!s_robot.neutral_seen && throttle == 0) {
+                s_robot.neutral_seen = true;
+            }
+            int8_t out_throttle = (armed && s_robot.neutral_seen) ? throttle : 0;
+            uint8_t angle = rc_map_steering(str_tick, &s_robot.rc_cfg.steer);
+
+            if (s_robot.config.gpio_enabled) {
+                motor_drive_signed(out_throttle);
+                servo_move_to(angle, false);
+            }
+
+            s_robot.rc_active = true;
+            s_robot.prev_connected = true;
+            xSemaphoreGive(s_robot.cmd_mutex);
+        } else {
+            if (s_robot.prev_connected) {
+                /* RC -> lost: stop and recenter (the failsafe timer also does
+                 * this); then release control back to REST/web. */
+                xSemaphoreTake(s_robot.cmd_mutex, portMAX_DELAY);
+                if (s_robot.config.gpio_enabled) {
+                    motor_drive_signed(0);
+                    servo_move_to(s_robot.rc_cfg.steer.servo_center_deg, false);
+                }
+                s_robot.prev_connected = false;
+                s_robot.seen_disarm = false;
+                s_robot.neutral_seen = false;
+                xSemaphoreGive(s_robot.cmd_mutex);
+            }
+            s_robot.rc_active = false;
+        }
+
+        vTaskDelay(period);
+    }
+    vTaskDelete(NULL);
+}
+
+esp_err_t robot_start_rc(const robot_rc_cfg_t *cfg) {
+    if (!s_robot.initialized || cfg == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (s_robot.rc_running) {
+        return ESP_OK;
+    }
+
+    memcpy(&s_robot.rc_cfg, cfg, sizeof(robot_rc_cfg_t));
+    crsf_input_register_failsafe_cb(robot_failsafe_cb);
+
+    s_robot.rc_running = true;
+    BaseType_t ok =
+        xTaskCreatePinnedToCore(robot_rc_task, "robot_rc", 4096, NULL, 5, NULL, cfg->task_core_id);
+    if (ok != pdPASS) {
+        s_robot.rc_running = false;
+        return ESP_FAIL;
+    }
+
+    ESP_LOGI(TAG, "RC control started (steer=ch%u, throttle=ch%u, arm=ch%u)", cfg->steering_ch,
+             cfg->throttle_ch, cfg->arm_ch);
+    return ESP_OK;
+}
+
 void robot_cleanup(void) {
     if (!s_robot.initialized) {
         return;
@@ -223,6 +387,7 @@ void robot_cleanup(void) {
 
     ESP_LOGI(TAG, "Robot cleanup");
 
+    s_robot.rc_running = false;
     safety_cancel_auto_stop();
 
     if (s_robot.config.gpio_enabled) {

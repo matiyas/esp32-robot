@@ -7,4 +7,7 @@ idf_component_register(
         motor_control
         servo_control
         safety_handler
+        crsf_input
+        esp_timer
+        freertos
 )
