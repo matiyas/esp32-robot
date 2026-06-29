@@ -1,0 +1,12 @@
+idf_component_register(
+    SRCS
+        "src/crsf_protocol.c"
+        "src/rc_map.c"
+        "src/crsf_input.c"
+    INCLUDE_DIRS
+        "include"
+    REQUIRES
+        driver
+        freertos
+        esp_timer
+)
