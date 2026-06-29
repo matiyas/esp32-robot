@@ -4,8 +4,6 @@ class RobotController {
     this.api = new RobotAPI();
     this.isConnected = false;
     this.movementDuration = 250;
-    this.turretDuration = 350;
-    this.ledState = false;
     this.moveAbortController = null;
 
     this.init();
@@ -15,9 +13,6 @@ class RobotController {
     console.log('Initializing Robot Controller...');
 
     this.setupMovementControls();
-    this.setupTurretControls();
-    this.setupEmergencyStop();
-    this.setupLedToggle();
     this.setupFullscreen();
 
     await this.loadCameraStream();
@@ -37,24 +32,6 @@ class RobotController {
         this.setupButton(btn, () => this.move(direction));
       }
     });
-  }
-
-  setupTurretControls() {
-    const btnLeft = document.getElementById('btnTurretLeft');
-    const btnRight = document.getElementById('btnTurretRight');
-
-    if (btnLeft) this.setupButton(btnLeft, () => this.turret('left'));
-    if (btnRight) this.setupButton(btnRight, () => this.turret('right'));
-  }
-
-  setupEmergencyStop() {
-    const btnStop = document.getElementById('btnStop');
-    if (btnStop) btnStop.addEventListener('click', () => this.emergencyStop());
-  }
-
-  setupLedToggle() {
-    const btnLed = document.getElementById('btnLed');
-    if (btnLed) btnLed.addEventListener('click', () => this.toggleLed());
   }
 
   setupFullscreen() {
@@ -159,44 +136,6 @@ class RobotController {
       if (error.name !== 'AbortError') {
         console.error('Move failed:', error);
       }
-    }
-  }
-
-  async turret(direction) {
-    try {
-      const result =
-        await this.api.turret(direction, this.turretDuration, this.moveAbortController?.signal);
-      console.log('Turret command sent:', result);
-    } catch (error) {
-      if (error.name !== 'AbortError') {
-        console.error('Turret command failed:', error);
-        this.showError('Turret command failed');
-      }
-    }
-  }
-
-  async emergencyStop() {
-    try {
-      const result = await this.api.stop();
-      console.log('Emergency stop:', result);
-      this.showStatus('STOPPED', 'error');
-    } catch (error) {
-      console.error('Emergency stop failed:', error);
-      this.showError('Emergency stop failed');
-    }
-  }
-
-  async toggleLed() {
-    try {
-      this.ledState = !this.ledState;
-      const btnLed = document.getElementById('btnLed');
-      const result = await this.api.led(this.ledState);
-      btnLed.classList.toggle('active', this.ledState);
-      console.log('LED toggled:', result);
-    } catch (error) {
-      this.ledState = !this.ledState;
-      console.error('LED toggle failed:', error);
-      this.showError('LED toggle failed');
     }
   }
 
