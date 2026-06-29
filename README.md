@@ -5,17 +5,25 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![ESP-IDF](https://img.shields.io/badge/ESP--IDF-v5.2-blue)](https://github.com/espressif/esp-idf)
 
-A robot tank controller running on ESP32-CAM (AI-Thinker) with REST API, camera streaming, and web UI.
+An ESP32-CAM (AI-Thinker) robot controller with REST API, camera streaming, and a web UI.
+It supports two kinematics modes, selectable in `menuconfig`:
+
+- **TANK** (default): two motors, skid-steer — the original behavior.
+- **CAR**: one rear drive motor + one steering servo, driven by an ELRS/CRSF radio
+  (e.g. a RadioMaster Pocket), with the camera available for low-rate FPV.
 
 ## Features
 
 - **Motor Control**: DRV8833 dual H-bridge driver with direct PWM on motor pins
-- **Servo Control**: SG90 micro servo for camera turret with smooth interpolation
+- **RC / ELRS Control (CAR mode)**: Drive from an ExpressLRS transmitter over CRSF —
+  proportional throttle (forward/reverse), linear steering, optional arm switch, and a
+  frame-timeout failsafe. The RC link is primary and overrides REST/web while connected.
+- **Servo Control**: SG90 micro servo (camera turret in TANK mode, steering in CAR mode)
 - **Camera Streaming**: Optimized MJPEG stream via built-in OV2640 camera (8MHz XCLK to avoid WiFi interference)
 - **LED Control**: Toggleable flash LED for illumination
 - **REST API**: Full API for robot control (OpenAPI documented)
 - **Web UI**: Mobile-friendly terminal-style control dashboard with fullscreen camera view
-- **Safety Features**: Watchdog timer, movement timeout, emergency stop
+- **Safety Features**: Watchdog timer, movement timeout, emergency stop, RC failsafe
 
 ## Hardware Requirements
 
@@ -28,6 +36,8 @@ A robot tank controller running on ESP32-CAM (AI-Thinker) with REST API, camera 
 
 ## GPIO Pinout
 
+### TANK mode (default)
+
 | Function | Default GPIO | Notes |
 |----------|--------------|-------|
 | Motor Left IN1 | 12 | PWM controlled, SD card D2 (unused) |
@@ -37,7 +47,35 @@ A robot tank controller running on ESP32-CAM (AI-Thinker) with REST API, camera 
 | Servo Signal | 2 | SD card D0 (unused) |
 | Flash LED | 4 | Built-in flash LED |
 
-**Note**: SD card functionality is sacrificed to free GPIO pins for motor/servo control. DRV8833 nSLEEP pin should be tied to VCC (always enabled).
+### CAR mode (ELRS / CRSF)
+
+| Function | Default GPIO | Notes |
+|----------|--------------|-------|
+| Drive motor IN1 | 13 | DRV8833 AIN1, PWM |
+| Drive motor IN2 | 14 | DRV8833 AIN2, PWM |
+| Steering servo | 2 | SG90 signal, 50 Hz, 1000–2000 µs |
+| CRSF RX | 15 | ELRS RX **TX** → ESP32 RX (UART1, GPIO matrix) |
+| Flash LED / headlight | 4 | Built-in flash LED |
+| Drive motor **(GPIO12)** | — | **Intentionally unused** (see strapping note) |
+
+**DRV8833 parallel (~3A):** to double the current, tie the two channel inputs together
+(AIN1+BIN1 and AIN2+BIN2) and parallel the outputs externally, then select
+*Parallel channels* in menuconfig. The firmware drives the same two GPIOs (13/14) in both
+SINGLE and PARALLEL modes — no extra pins are needed. Keep DRV8833 nSLEEP tied to VCC.
+
+**Strapping-pin notes (ESP32-CAM):**
+
+- **GPIO12 is avoided for the drive motor.** It selects flash voltage at reset; if it is HIGH
+  at boot the chip tries 1.8 V flash and fails to boot. Leave it unconnected (its internal
+  pulldown holds it low) — no eFuse change required.
+- **GPIO2** (servo) is a boot strap and must be low/floating at reset — do not add an external
+  pull-up. The unused `ROBOT_MOTORS_ENABLE` (also GPIO2) is never driven by the firmware.
+- **GPIO15** (CRSF RX) is a boot strap, but a UART input idles HIGH, so boot is normal; power
+  the ELRS RX together with the ESP32.
+- **GPIO16/17** are used by PSRAM on the ESP32-CAM — do not reassign the servo there (the
+  default was moved from GPIO16 to GPIO2 for this reason).
+
+**Note**: SD card functionality is sacrificed to free GPIO pins for motor/servo control.
 
 ### Camera Pins (Fixed - AI-Thinker)
 
@@ -239,9 +277,23 @@ All settings are configurable via `idf.py menuconfig`:
 | Robot Controller → WiFi Settings | SSID, password, retry count |
 | Robot Controller → Motor Control | GPIO pins, PWM frequency, ramp duration |
 | Robot Controller → Servo Control | GPIO pin, pulse widths, angles |
+| Robot Controller → RC / CRSF | Kinematics (TANK/CAR), DRV8833 mode, CRSF UART/RX/channels, throttle & steering mapping, arm channel, failsafe timeout |
 | Robot Controller → Safety Settings | Timeouts, watchdog |
 | Robot Controller → HTTP Server | Port, mock mode |
 | Robot Controller → Camera Settings | Resolution, quality |
+
+### RC / CRSF options (CAR mode)
+
+| Option | Default | Meaning |
+|--------|---------|---------|
+| Kinematics mode | TANK | `CAR` enables RC drive-motor + steering-servo control |
+| DRV8833 drive mode | Single (~1.5A) | `Parallel` (~3A) ties both channels (same GPIOs) |
+| CAR drive motor IN1 / IN2 | 13 / 14 | Drive motor pins (GPIO12 avoided) |
+| CRSF UART / RX GPIO / baud | 1 / 15 / 420000 | Hardware UART for the ELRS receiver |
+| Steering / Throttle / Arm channel | 1 / 2 / 5 | CRSF channels (Arm = 0 disables arm gating) |
+| Throttle deadband / max duty / reverse | 20 / 100 / off | Center deadband (ticks), speed limit (%), direction |
+| Steering trim / max angle / reverse | 0 / 45 / off | Center trim (deg), endpoint limit (deg), direction |
+| Failsafe timeout | 500 ms | No-frame window before motor 0 + servo center |
 
 ## API Endpoints
 
@@ -257,6 +309,55 @@ All settings are configurable via `idf.py menuconfig`:
 | GET | / | Web UI |
 | GET | /docs | API documentation |
 | GET | /stream | MJPEG camera stream |
+
+## RC / ELRS Control (CAR mode)
+
+In CAR mode the robot is driven by an ExpressLRS transmitter (e.g. a RadioMaster Pocket)
+over CRSF. The onboard camera still streams over Wi-Fi for low-rate FPV.
+
+### Wiring
+
+- **ELRS receiver** (RadioMaster RP2 or any serial ELRS RX): RX **TX pin → ESP32 GPIO15**
+  (CRSF RX). Power the RX from the 5 V rail; common ground with the ESP32.
+- **Drive motor**: brushed DC via DRV8833 — AIN1=GPIO13, AIN2=GPIO14, nSLEEP→VCC. Motor
+  supply from 4×AA NiMH (~4.8–6 V); for ~3 A use the parallel wiring above.
+- **Steering servo**: SG90 signal → GPIO2; power from the 5 V rail.
+- **Power**: a separate 5 V buck-boost feeds the ESP32-CAM, the ELRS RX, and the servo; the
+  motor supply is raw battery. **All grounds common.** Keep the RX antenna away from the
+  camera module to limit 2.4 GHz coexistence interference.
+
+### Transmitter / receiver setup (ExpressLRS)
+
+1. Bind the RX to the Pocket (matching ELRS firmware version and region, e.g. EU/LBT).
+2. Set the RX output protocol to **Serial / CRSF at 420000 baud** (not SBUS/PWM).
+3. **Set the RX failsafe to "Cut / No Pulses"** so frames stop on signal loss — this is what
+   triggers the firmware failsafe. (Holding last position would not.)
+4. Map your sticks/switches to the configured channels (defaults): **CH1 steering**,
+   **CH2 throttle**, **CH5 arm** (a 2- or 3-position AUX switch).
+
+### Arm, failsafe, and arbitration
+
+- **Arm gating**: the robot boots **disarmed**; the motor stays at zero until you perform a
+  **disarm → arm** cycle on the arm switch (CH5). The steering servo always follows the stick.
+  Set the arm channel to `0` in menuconfig to disable arm gating entirely.
+- **Failsafe**: if no valid CRSF frame arrives for `ROBOT_CRSF_FAILSAFE_TIMEOUT_MS` (default
+  500 ms), an independent timer forces **motor 0 + servo center**, regardless of the control
+  task. After the link returns you must re-establish neutral throttle (and re-arm) before the
+  motor will spin again.
+- **Arbitration**: the RC link is **primary**. While it is connected, REST/web movement and
+  turret commands are ignored (the `/api/v1/status` response exposes `"rc_active": true`).
+  Camera, status, and configuration endpoints stay available. When the RC link is absent,
+  the REST API and web UI control the robot exactly as in TANK mode.
+
+### FPV
+
+Connect your phone/laptop to the ESP32 Wi-Fi AP and open the MJPEG stream (web UI camera
+view, or `GET /api/v1/camera` for the URL). Expect ~150–300 ms of latency; this is a
+situational-awareness feed, not a low-latency FPV link.
+
+> **Note:** CRSF input cannot be simulated in Wokwi. The protocol parsing and mapping are
+> covered by the host unit tests (`test/host`); end-to-end behavior must be validated on
+> hardware.
 
 ## Troubleshooting
 
