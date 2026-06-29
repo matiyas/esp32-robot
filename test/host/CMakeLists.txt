@@ -25,9 +25,15 @@ target_include_directories(mocks PUBLIC
     ${CMAKE_SOURCE_DIR}/../components/safety_handler/include
 )
 
-# Test executable
+# Test executable. The crsf_input parser/mapping are pure C (no ESP headers),
+# so we compile the real production sources directly. Note the ../../ depth:
+# CMAKE_SOURCE_DIR is test/host, so components live two levels up.
 add_executable(robot_test
     test_safety_validate.c
+    test_crsf_parser.c
+    test_rc_map.c
+    ${CMAKE_SOURCE_DIR}/../../components/crsf_input/src/crsf_protocol.c
+    ${CMAKE_SOURCE_DIR}/../../components/crsf_input/src/rc_map.c
 )
 
 target_link_libraries(robot_test
@@ -41,6 +47,7 @@ target_include_directories(robot_test PRIVATE
     ${CMAKE_SOURCE_DIR}/../components/motor_control/include
     ${CMAKE_SOURCE_DIR}/../components/servo_control/include
     ${CMAKE_SOURCE_DIR}/../components/safety_handler/include
+    ${CMAKE_SOURCE_DIR}/../../components/crsf_input/include
 )
 
 enable_testing()
