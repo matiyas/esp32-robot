@@ -189,8 +189,9 @@ esp_err_t api_handle_status(httpd_req_t *req) {
     robot_status_t status = robot_get_status();
 
     char response[256];
-    snprintf(response, sizeof(response), "\"connected\":%s,\"gpio_enabled\":%s",
-             status.connected ? "true" : "false", status.gpio_enabled ? "true" : "false");
+    snprintf(response, sizeof(response), "\"connected\":%s,\"gpio_enabled\":%s,\"rc_active\":%s",
+             status.connected ? "true" : "false", status.gpio_enabled ? "true" : "false",
+             status.rc_active ? "true" : "false");
 
     return api_send_success(req, response);
 }

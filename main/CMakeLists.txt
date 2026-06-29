@@ -7,6 +7,7 @@ idf_component_register(
         robot_core
         motor_control
         servo_control
+        crsf_input
         http_server
         camera_stream
         wifi_manager

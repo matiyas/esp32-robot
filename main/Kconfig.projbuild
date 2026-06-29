@@ -83,11 +83,12 @@ menu "Robot Controller Configuration"
     menu "Servo Control"
         config ROBOT_SERVO_GPIO
             int "Servo Signal GPIO"
-            default 16
+            default 2
             range 0 39
             help
-                GPIO pin connected to SG90 servo signal.
-                Note: Avoid GPIO 4 on ESP32-CAM as it has the flash LED.
+                GPIO pin connected to SG90 servo signal (steering servo in CAR mode).
+                Default GPIO2; avoid GPIO16/17 which are used by PSRAM on the
+                ESP32-CAM, and GPIO4 which drives the flash LED.
 
         config ROBOT_SERVO_MIN_PULSE_US
             int "Minimum Pulse Width (us)"
@@ -183,6 +184,136 @@ menu "Robot Controller Configuration"
             help
                 Enable mock mode for development without physical hardware.
                 All GPIO operations will be simulated with logging.
+    endmenu
+
+    menu "RC / CRSF"
+        choice ROBOT_KINEMATICS
+            prompt "Kinematics mode"
+            default ROBOT_KINEMATICS_TANK
+            help
+                TANK: two motors, skid-steer (original behavior).
+                CAR: one drive motor + steering servo, driven by an ELRS/CRSF radio.
+
+            config ROBOT_KINEMATICS_TANK
+                bool "Tank (skid-steer)"
+            config ROBOT_KINEMATICS_CAR
+                bool "Car (drive motor + steering servo)"
+        endchoice
+
+        choice ROBOT_DRV8833_MODE
+            prompt "DRV8833 drive mode (CAR)"
+            default ROBOT_DRV8833_SINGLE
+            help
+                SINGLE: one DRV8833 channel (~1.5A).
+                PARALLEL: both channels paralleled for ~3A. Tie the inputs
+                (AIN1+BIN1, AIN2+BIN2) and outputs together externally; the
+                firmware drives the same two GPIOs in both modes.
+
+            config ROBOT_DRV8833_SINGLE
+                bool "Single channel (~1.5A)"
+            config ROBOT_DRV8833_PARALLEL
+                bool "Parallel channels (~3A)"
+        endchoice
+
+        config ROBOT_CAR_DRIVE_IN1
+            int "CAR drive motor IN1 GPIO"
+            default 13
+            range 0 39
+            help
+                Drive motor DRV8833 IN1 in CAR mode. GPIO12 is intentionally
+                avoided (flash-voltage strapping pin).
+
+        config ROBOT_CAR_DRIVE_IN2
+            int "CAR drive motor IN2 GPIO"
+            default 14
+            range 0 39
+            help
+                Drive motor DRV8833 IN2 in CAR mode.
+
+        config ROBOT_CRSF_UART_NUM
+            int "CRSF UART peripheral"
+            default 1
+            range 1 2
+            help
+                Hardware UART used for the CRSF receiver (1 or 2).
+
+        config ROBOT_CRSF_RX_GPIO
+            int "CRSF RX GPIO"
+            default 15
+            range 0 39
+            help
+                Pin receiving CRSF from the ELRS RX (routed via the GPIO matrix).
+                Default GPIO15: a UART input idles high, so its strapping
+                behavior is harmless at boot.
+
+        config ROBOT_CRSF_BAUD
+            int "CRSF baud rate"
+            default 420000
+            range 9600 2000000
+            help
+                CRSF serial baud (8N1, not inverted). ELRS uses 420000.
+
+        config ROBOT_CRSF_CH_STEERING
+            int "Steering channel"
+            default 1
+            range 1 16
+
+        config ROBOT_CRSF_CH_THROTTLE
+            int "Throttle channel"
+            default 2
+            range 1 16
+
+        config ROBOT_CRSF_CH_ARM
+            int "Arm channel (0 = always armed)"
+            default 5
+            range 0 16
+            help
+                AUX switch channel that arms the motor. 0 disables arm gating.
+                When armed the motor only spins after a disarm->arm cycle.
+
+        config ROBOT_CRSF_THROTTLE_DEADBAND
+            int "Throttle deadband (ticks)"
+            default 20
+            range 0 200
+            help
+                Ticks around stick center mapped to zero throttle.
+
+        config ROBOT_CRSF_THROTTLE_MAX_DUTY
+            int "Throttle max duty (%)"
+            default 100
+            range 1 100
+            help
+                Motor duty at full throttle stick (speed limit).
+
+        config ROBOT_CRSF_THROTTLE_REVERSE
+            bool "Reverse throttle"
+            default n
+
+        config ROBOT_CRSF_STEERING_TRIM
+            int "Steering center trim (deg)"
+            default 0
+            range -45 45
+            help
+                Offset added to the servo center to straighten the wheels.
+
+        config ROBOT_CRSF_STEERING_MAX_ANGLE
+            int "Steering max angle (deg)"
+            default 45
+            range 1 90
+            help
+                Servo deflection at full steering stick (protects the linkage).
+
+        config ROBOT_CRSF_STEERING_REVERSE
+            bool "Reverse steering"
+            default n
+
+        config ROBOT_CRSF_FAILSAFE_TIMEOUT_MS
+            int "Failsafe timeout (ms)"
+            default 500
+            range 100 5000
+            help
+                If no valid CRSF frame arrives within this window the motor is
+                stopped and the servo centered.
     endmenu
 
     menu "Camera Settings"

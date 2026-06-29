@@ -15,6 +15,7 @@
 
 #include "app_config.h"
 #include "camera_stream.h"
+#include "crsf_input.h"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_spiffs.h"
@@ -79,13 +80,24 @@ static esp_err_t init_spiffs(void) {
  * @brief Initialize motor control subsystem
  */
 static esp_err_t init_motors(void) {
-    motor_control_config_t config = {
-        .left_motor = {.in1 = APP_MOTOR_LEFT_IN1, .in2 = APP_MOTOR_LEFT_IN2},
-        .right_motor = {.in1 = APP_MOTOR_RIGHT_IN1, .in2 = APP_MOTOR_RIGHT_IN2},
-        .enable_pin = APP_MOTORS_ENABLE,
-        .pwm_frequency_hz = APP_PWM_FREQUENCY,
-        .ramp_duration_ms = APP_PWM_RAMP_MS,
-        .ramp_steps = APP_PWM_RAMP_STEPS};
+    motor_control_config_t config = {.enable_pin = APP_MOTORS_ENABLE,
+                                     .pwm_frequency_hz = APP_PWM_FREQUENCY,
+                                     .ramp_duration_ms = APP_PWM_RAMP_MS,
+                                     .ramp_steps = APP_PWM_RAMP_STEPS};
+
+#if APP_KINEMATICS_CAR
+    /* CAR: one drive motor on the dedicated drive pins; right pair unused. */
+    config.left_motor.in1 = APP_CAR_DRIVE_IN1;
+    config.left_motor.in2 = APP_CAR_DRIVE_IN2;
+    config.drive_single_pair = true;
+#else
+    /* TANK: two motors, skid-steer (original behavior). */
+    config.left_motor.in1 = APP_MOTOR_LEFT_IN1;
+    config.left_motor.in2 = APP_MOTOR_LEFT_IN2;
+    config.right_motor.in1 = APP_MOTOR_RIGHT_IN1;
+    config.right_motor.in2 = APP_MOTOR_RIGHT_IN2;
+    config.drive_single_pair = false;
+#endif
 
     return motor_control_init(&config);
 }
@@ -164,6 +176,51 @@ static esp_err_t start_server(void) {
     return ESP_OK;
 }
 
+#if APP_KINEMATICS_CAR
+static bool s_rc_hw_ready = false;
+
+/**
+ * @brief Initialize the CRSF UART receiver (CAR mode only)
+ */
+static esp_err_t init_crsf(void) {
+    crsf_input_config_t config = {.uart_num = APP_CRSF_UART_NUM,
+                                  .rx_gpio = APP_CRSF_RX_GPIO,
+                                  .tx_gpio = -1,
+                                  .baud = APP_CRSF_BAUD,
+                                  .failsafe_timeout_ms = APP_CRSF_FAILSAFE_TIMEOUT_MS,
+                                  .task_priority = 6,
+                                  .task_core_id = 1};
+
+    return crsf_input_init(&config);
+}
+
+/**
+ * @brief Start CRSF reception and RC car control (CAR mode only)
+ */
+static esp_err_t start_rc(void) {
+    robot_rc_cfg_t cfg = {.steering_ch = APP_CRSF_CH_STEERING,
+                          .throttle_ch = APP_CRSF_CH_THROTTLE,
+                          .arm_ch = APP_CRSF_CH_ARM,
+                          .throttle = {.center_tick = 0,
+                                       .deadband_ticks = APP_CRSF_THROTTLE_DEADBAND,
+                                       .max_duty = APP_CRSF_THROTTLE_MAX_DUTY,
+                                       .reverse = APP_CRSF_THROTTLE_REVERSE},
+                          .steer = {.center_tick = 0,
+                                    .center_trim_deg = APP_CRSF_STEERING_TRIM,
+                                    .max_angle_deg = APP_CRSF_STEERING_MAX_ANGLE,
+                                    .servo_center_deg = APP_SERVO_DEFAULT,
+                                    .reverse = APP_CRSF_STEERING_REVERSE},
+                          .failsafe_timeout_ms = APP_CRSF_FAILSAFE_TIMEOUT_MS,
+                          .task_core_id = 1};
+
+    esp_err_t ret = crsf_input_start();
+    if (ret != ESP_OK) {
+        return ret;
+    }
+    return robot_start_rc(&cfg);
+}
+#endif /* APP_KINEMATICS_CAR */
+
 /**
  * @brief Application entry point
  */
@@ -190,6 +247,14 @@ void app_main(void) {
     if (!APP_MOCK_MODE) {
         ESP_ERROR_CHECK(init_motors());
         ESP_ERROR_CHECK(init_servo());
+#if APP_KINEMATICS_CAR
+        /* RC is optional: a failure must not brick camera/Wi-Fi/REST. */
+        if (init_crsf() == ESP_OK) {
+            s_rc_hw_ready = true;
+        } else {
+            ESP_LOGW(TAG, "CRSF init failed - RC control disabled");
+        }
+#endif
         if (init_camera() != ESP_OK) {
             ESP_LOGW(TAG, "Camera init failed - continuing without camera");
         }
@@ -202,6 +267,15 @@ void app_main(void) {
 
     /* Initialize safety handler */
     ESP_ERROR_CHECK(init_safety());
+
+#if APP_KINEMATICS_CAR
+    /* Start RC car control once robot core + safety are ready. */
+    if (!APP_MOCK_MODE && s_rc_hw_ready) {
+        if (start_rc() != ESP_OK) {
+            ESP_LOGW(TAG, "RC control failed to start");
+        }
+    }
+#endif
 
     /* Start HTTP server */
     ESP_ERROR_CHECK(start_server());
