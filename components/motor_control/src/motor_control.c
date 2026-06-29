@@ -65,7 +65,17 @@ esp_err_t motor_control_init(const motor_control_config_t *config) {
 
     esp_err_t ret;
 
-    /* Initialize PWM for all motor pins */
+    /*
+     * Mark every channel invalid up front. Unused channels MUST NOT keep their
+     * zero default, because channel 0 is a valid handle aliasing the camera's
+     * LEDC channel; the shared stop/cleanup paths would then poke the camera.
+     */
+    s_motor.left_in1_pwm = HAL_PWM_CHANNEL_INVALID;
+    s_motor.left_in2_pwm = HAL_PWM_CHANNEL_INVALID;
+    s_motor.right_in1_pwm = HAL_PWM_CHANNEL_INVALID;
+    s_motor.right_in2_pwm = HAL_PWM_CHANNEL_INVALID;
+
+    /* The left pair is always the drive channel (TANK left motor or CAR drive). */
     ret = hal_pwm_init(config->left_motor.in1, config->pwm_frequency_hz, &s_motor.left_in1_pwm);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Left IN1 PWM init failed");
@@ -78,16 +88,21 @@ esp_err_t motor_control_init(const motor_control_config_t *config) {
         return ret;
     }
 
-    ret = hal_pwm_init(config->right_motor.in1, config->pwm_frequency_hz, &s_motor.right_in1_pwm);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Right IN1 PWM init failed");
-        return ret;
-    }
+    /* CAR single-pair mode leaves the right pair uninitialized (frees its GPIOs). */
+    if (!config->drive_single_pair) {
+        ret =
+            hal_pwm_init(config->right_motor.in1, config->pwm_frequency_hz, &s_motor.right_in1_pwm);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "Right IN1 PWM init failed");
+            return ret;
+        }
 
-    ret = hal_pwm_init(config->right_motor.in2, config->pwm_frequency_hz, &s_motor.right_in2_pwm);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Right IN2 PWM init failed");
-        return ret;
+        ret =
+            hal_pwm_init(config->right_motor.in2, config->pwm_frequency_hz, &s_motor.right_in2_pwm);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "Right IN2 PWM init failed");
+            return ret;
+        }
     }
 
     /* DRV8833 nSLEEP pin should be tied to VCC to keep it always enabled */
@@ -155,6 +170,35 @@ esp_err_t motor_turn_right(uint32_t duration_ms) {
     set_motor(s_motor.left_in1_pwm, s_motor.left_in2_pwm, MOTOR_MODE_FORWARD, 100);
     set_motor(s_motor.right_in1_pwm, s_motor.right_in2_pwm, MOTOR_MODE_BACKWARD, 100);
 
+    return ESP_OK;
+}
+
+esp_err_t motor_drive_signed(int8_t signed_duty) {
+    if (!s_motor.initialized) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    int duty = signed_duty;
+    if (duty > 100) {
+        duty = 100;
+    } else if (duty < -100) {
+        duty = -100;
+    }
+
+    motor_mode_t mode;
+    uint8_t magnitude;
+    if (duty > 0) {
+        mode = MOTOR_MODE_FORWARD;
+        magnitude = (uint8_t)duty;
+    } else if (duty < 0) {
+        mode = MOTOR_MODE_BACKWARD;
+        magnitude = (uint8_t)(-duty);
+    } else {
+        mode = MOTOR_MODE_COAST;
+        magnitude = 0;
+    }
+
+    set_motor(s_motor.left_in1_pwm, s_motor.left_in2_pwm, mode, magnitude);
     return ESP_OK;
 }
 

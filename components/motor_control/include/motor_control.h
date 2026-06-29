@@ -13,6 +13,7 @@
 
 #include <driver/gpio.h>
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "robot_types.h"
@@ -33,12 +34,13 @@ typedef struct {
  * @brief Motor control configuration
  */
 typedef struct {
-    motor_pins_t left_motor;   /**< Left motor pins */
-    motor_pins_t right_motor;  /**< Right motor pins */
-    gpio_num_t enable_pin;     /**< Shared PWM enable pin */
+    motor_pins_t left_motor;   /**< Left motor pins (also the CAR drive channel) */
+    motor_pins_t right_motor;  /**< Right motor pins (TANK only) */
+    gpio_num_t enable_pin;     /**< Shared PWM enable pin (unused; nSLEEP tied to VCC) */
     uint32_t pwm_frequency_hz; /**< PWM frequency (default: 1000) */
     uint32_t ramp_duration_ms; /**< Soft-start ramp time (default: 500) */
     uint8_t ramp_steps;        /**< Number of ramp steps (default: 25) */
+    bool drive_single_pair;    /**< CAR mode: init only the left/drive pair, skip the right */
 } motor_control_config_t;
 
 /**
@@ -82,6 +84,18 @@ esp_err_t motor_turn_left(uint32_t duration_ms);
  * @return ESP_OK on success
  */
 esp_err_t motor_turn_right(uint32_t duration_ms);
+
+/**
+ * @brief Drive the single CAR drive motor with a signed duty.
+ *
+ * Used by CAR (RC) kinematics. Positive = forward, negative = reverse, zero =
+ * coast. The magnitude is the PWM duty percent (clamped to [-100, 100]). Acts
+ * on the left/drive pair configured at init.
+ *
+ * @param signed_duty Signed duty in [-100, 100].
+ * @return ESP_OK on success
+ */
+esp_err_t motor_drive_signed(int8_t signed_duty);
 
 /**
  * @brief Stop all motors (coast mode)
